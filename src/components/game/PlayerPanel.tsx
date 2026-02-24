@@ -8,53 +8,57 @@ interface Props {
 }
 
 const colors: Record<PlayerColor, { main: string; light: string; dark: string }> = {
-  red:    { main: '#e53935', light: '#ef5350', dark: '#b71c1c' },
-  green:  { main: '#43a047', light: '#66bb6a', dark: '#1b5e20' },
-  blue:   { main: '#1e88e5', light: '#42a5f5', dark: '#0d47a1' },
-  yellow: { main: '#fdd835', light: '#ffee58', dark: '#f9a825' },
+  red:    { main: '#E53935', light: '#EF5350', dark: '#B71C1C' },
+  green:  { main: '#43A047', light: '#66BB6A', dark: '#1B5E20' },
+  blue:   { main: '#1E88E5', light: '#42A5F5', dark: '#0D47A1' },
+  yellow: { main: '#FDD835', light: '#FFEE58', dark: '#F57F17' },
 };
 
 const PlayerPanel = ({ player, isActive, tokens }: Props) => {
-  const home = tokens.filter(t => t.position === -1).length;
   const done = tokens.filter(t => t.position === 57).length;
   const c = colors[player.color];
 
   return (
     <motion.div
-      animate={isActive ? { scale: 1.05, y: -2 } : { scale: 1, y: 0 }}
+      animate={isActive ? { scale: 1.08, y: -2 } : { scale: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all"
+      className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl"
       style={{
         background: isActive
-          ? `linear-gradient(135deg, ${c.main}22, ${c.main}11)`
-          : 'rgba(255,255,255,0.05)',
-        border: isActive ? `2px solid ${c.main}` : '2px solid transparent',
-        boxShadow: isActive ? `0 4px 16px ${c.main}33` : 'none',
+          ? `linear-gradient(135deg, ${c.dark}CC, ${c.main}AA)`
+          : 'rgba(255,255,255,0.08)',
+        border: isActive ? `2px solid ${c.light}` : '2px solid rgba(255,255,255,0.1)',
+        boxShadow: isActive ? `0 4px 20px ${c.main}44` : 'none',
+        minWidth: 100,
       }}
     >
       {/* Avatar */}
       <div
-        className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
         style={{
-          background: `linear-gradient(135deg, ${c.light}, ${c.main})`,
-          boxShadow: `0 2px 8px ${c.main}55`,
+          background: `linear-gradient(135deg, ${c.light}, ${c.dark})`,
+          boxShadow: `0 2px 6px ${c.dark}88`,
+          border: `2px solid ${c.light}66`,
         }}
       >
         {player.name[0]}
       </div>
       <div className="min-w-0">
-        <div className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1.5">
+        <div className="text-[0.65rem] sm:text-xs font-bold text-white flex items-center gap-1">
           {player.name}
-          {player.isAI && <span className="text-[0.6rem] opacity-60">🤖</span>}
+          {player.isAI && <span className="opacity-50 text-[0.5rem]">🤖</span>}
         </div>
-        <div className="flex gap-2 text-[0.6rem] sm:text-xs text-muted-foreground">
+        {/* Token progress as mini circles */}
+        <div className="flex gap-1 mt-0.5">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full"
+              className="rounded-full"
               style={{
-                backgroundColor: i < done ? c.main : i < (4 - home) ? `${c.main}55` : `${c.main}22`,
-                border: `1px solid ${c.main}44`,
+                width: 8, height: 8,
+                backgroundColor: i < done ? '#FFD700' : `${c.main}55`,
+                border: i < done ? '1px solid #DAA520' : `1px solid ${c.main}33`,
+                boxShadow: i < done ? '0 0 4px #FFD70088' : 'none',
               }}
             />
           ))}
