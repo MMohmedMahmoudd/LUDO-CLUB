@@ -37,13 +37,19 @@ const Game = () => {
     return () => clearTimeout(t);
   }, [state?.currentPlayerIndex, state?.hasRolled, state?.diceValue, validMoves.length]);
 
-  // Human auto-skip
+  // Human auto-move (single valid token) or auto-skip (no valid tokens)
   useEffect(() => {
     if (!state || state.gameStatus !== 'playing') return;
     const p = state.players[state.currentPlayerIndex];
-    if (p.isAI || !state.hasRolled || validMoves.length > 0) return;
-    const t = setTimeout(skipTurn, 1200);
-    return () => clearTimeout(t);
+    if (p.isAI || !state.hasRolled) return;
+    if (validMoves.length === 0) {
+      const t = setTimeout(skipTurn, 1200);
+      return () => clearTimeout(t);
+    }
+    if (validMoves.length === 1) {
+      const t = setTimeout(() => selectToken(validMoves[0]), 400);
+      return () => clearTimeout(t);
+    }
   }, [state?.hasRolled, validMoves.length]);
 
   if (!state) return null;
