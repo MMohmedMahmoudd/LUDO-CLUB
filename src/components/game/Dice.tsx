@@ -1,61 +1,94 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface Props {
   value: number | null;
   onRoll?: () => void;
+  playerColor?: string;
 }
 
 const dots: Record<number, [number, number][]> = {
   1: [[50,50]],
-  2: [[28,28],[72,72]],
-  3: [[28,28],[50,50],[72,72]],
-  4: [[28,28],[72,28],[28,72],[72,72]],
-  5: [[28,28],[72,28],[50,50],[28,72],[72,72]],
-  6: [[28,25],[72,25],[28,50],[72,50],[28,75],[72,75]],
+  2: [[30,30],[70,70]],
+  3: [[30,30],[50,50],[70,70]],
+  4: [[30,30],[70,30],[30,70],[70,70]],
+  5: [[30,30],[70,30],[50,50],[30,70],[70,70]],
+  6: [[30,22],[70,22],[30,50],[70,50],[30,78],[70,78]],
 };
 
-const Dice = ({ value, onRoll }: Props) => (
-  <motion.button
-    onClick={onRoll}
-    disabled={!onRoll}
-    whileTap={onRoll ? { scale: 0.9 } : undefined}
-    whileHover={onRoll ? { scale: 1.08 } : undefined}
-    className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl shadow-lg border-2 transition-colors
-      ${onRoll ? 'cursor-pointer bg-white border-primary hover:border-primary/80' : 'cursor-default bg-white/90 border-border'}`}
-  >
-    {value ? (
-      <motion.div
-        key={value}
-        initial={{ rotateZ: 180, scale: 0.4, opacity: 0 }}
-        animate={{ rotateZ: 0, scale: 1, opacity: 1 }}
-        transition={{ duration: 0.35, type: 'spring' }}
-        className="w-full h-full relative"
+const Dice = ({ value, onRoll, playerColor }: Props) => {
+  const [isRolling, setIsRolling] = useState(false);
+
+  const handleRoll = () => {
+    if (!onRoll) return;
+    setIsRolling(true);
+    setTimeout(() => {
+      setIsRolling(false);
+      onRoll();
+    }, 400);
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <motion.button
+        onClick={handleRoll}
+        disabled={!onRoll}
+        animate={isRolling ? {
+          rotateX: [0, 360, 720],
+          rotateZ: [0, 180, 360],
+          scale: [1, 0.8, 1],
+        } : {}}
+        transition={isRolling ? { duration: 0.4, ease: 'easeInOut' } : {}}
+        whileTap={onRoll ? { scale: 0.88 } : undefined}
+        whileHover={onRoll ? { scale: 1.08, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' } : undefined}
+        className="relative rounded-2xl select-none"
+        style={{
+          width: 72,
+          height: 72,
+          background: 'linear-gradient(145deg, #ffffff, #e8e8e8)',
+          border: onRoll ? `3px solid ${playerColor || '#e53935'}` : '3px solid #ccc',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.8)',
+          cursor: onRoll ? 'pointer' : 'default',
+        }}
       >
-        {dots[value].map(([x, y], i) => (
-          <div
-            key={i}
-            className="absolute w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full"
-            style={{
-              left: `${x}%`, top: `${y}%`,
-              transform: 'translate(-50%,-50%)',
-              backgroundColor: '#1e293b',
-            }}
-          />
-        ))}
-      </motion.div>
-    ) : (
-      <span className="text-2xl">🎲</span>
-    )}
-    {onRoll && (
-      <motion.span
-        animate={{ opacity: [0.5, 1, 0.5] }}
-        transition={{ repeat: Infinity, duration: 1.5 }}
-        className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[0.65rem] text-primary font-medium whitespace-nowrap"
-      >
-        Tap to roll
-      </motion.span>
-    )}
-  </motion.button>
-);
+        {value && !isRolling ? (
+          <motion.div
+            key={value}
+            initial={{ rotateZ: 90, scale: 0.3, opacity: 0 }}
+            animate={{ rotateZ: 0, scale: 1, opacity: 1 }}
+            transition={{ duration: 0.3, type: 'spring', stiffness: 300 }}
+            className="w-full h-full relative"
+          >
+            {dots[value].map(([x, y], i) => (
+              <div
+                key={i}
+                className="absolute rounded-full"
+                style={{
+                  left: `${x}%`, top: `${y}%`,
+                  transform: 'translate(-50%,-50%)',
+                  width: 10, height: 10,
+                  backgroundColor: '#1a1a2e',
+                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3)',
+                }}
+              />
+            ))}
+          </motion.div>
+        ) : !isRolling ? (
+          <span className="text-3xl">🎲</span>
+        ) : null}
+      </motion.button>
+      {onRoll && !isRolling && (
+        <motion.span
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ repeat: Infinity, duration: 1.5 }}
+          className="text-[0.65rem] font-semibold tracking-wide uppercase"
+          style={{ color: playerColor || '#e53935' }}
+        >
+          Tap to roll
+        </motion.span>
+      )}
+    </div>
+  );
+};
 
 export default Dice;

@@ -4,39 +4,39 @@
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 15%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 15%;
-    --popover-foreground: 210 40% 98%;
+    --background: 200 30% 12%;
+    --foreground: 210 40% 96%;
+    --card: 200 25% 16%;
+    --card-foreground: 210 40% 96%;
+    --popover: 200 25% 16%;
+    --popover-foreground: 210 40% 96%;
     --primary: 43 96% 56%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 20%;
-    --muted-foreground: 215 20% 65%;
+    --primary-foreground: 200 30% 10%;
+    --secondary: 200 20% 20%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 200 20% 22%;
+    --muted-foreground: 210 15% 60%;
     --accent: 43 80% 50%;
-    --accent-foreground: 222 47% 11%;
+    --accent-foreground: 200 30% 10%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 25%;
-    --input: 217 33% 25%;
+    --border: 200 20% 25%;
+    --input: 200 20% 25%;
     --ring: 43 96% 56%;
     --radius: 0.75rem;
 
-    --game-red: 0 72% 51%;
-    --game-green: 142 71% 45%;
-    --game-blue: 217 91% 60%;
-    --game-yellow: 45 93% 47%;
+    --game-red: 1 77% 55%;
+    --game-green: 123 39% 45%;
+    --game-blue: 210 78% 51%;
+    --game-yellow: 51 98% 60%;
 
-    --sidebar-background: 222 47% 13%;
+    --sidebar-background: 200 30% 14%;
     --sidebar-foreground: 210 40% 90%;
     --sidebar-primary: 43 96% 56%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 217 33% 20%;
+    --sidebar-primary-foreground: 200 30% 10%;
+    --sidebar-accent: 200 20% 22%;
     --sidebar-accent-foreground: 210 40% 90%;
-    --sidebar-border: 217 33% 25%;
+    --sidebar-border: 200 20% 25%;
     --sidebar-ring: 43 96% 56%;
   }
 }
@@ -47,5 +47,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
+    min-height: 100vh;
   }
 }
