@@ -12,7 +12,6 @@ interface Props {
   onTokenClick: (id: number) => void;
 }
 
-/* Ludo Club vivid colors */
 const C: Record<PlayerColor, { main: string; light: string; dark: string; track: string }> = {
   red:    { main: '#E53935', light: '#EF5350', dark: '#B71C1C', track: '#FFCDD2' },
   green:  { main: '#43A047', light: '#66BB6A', dark: '#1B5E20', track: '#C8E6C9' },
@@ -20,8 +19,8 @@ const C: Record<PlayerColor, { main: string; light: string; dark: string; track:
   yellow: { main: '#FDD835', light: '#FFEE58', dark: '#F57F17', track: '#FFF9C4' },
 };
 
-const BOARD_FRAME = '#1A237E'; // deep blue frame like reference
-const BOARD_BG = '#E8E0CC';   // warm board background
+const BOARD_FRAME = '#1A237E';
+const BOARD_BG = '#E8E0CC';
 const CELL_BORDER = '#C5B99A';
 
 const startColors: Record<number, PlayerColor> = {
@@ -30,6 +29,30 @@ const startColors: Record<number, PlayerColor> = {
   [PLAYER_START.blue]: 'blue',
   [PLAYER_START.yellow]: 'yellow',
 };
+
+/* Offsets when multiple tokens share a cell */
+const STACK_OFFSETS: [number, number][] = [
+  [0, 0],
+  [-0.35, -0.35],
+  [0.35, -0.35],
+  [-0.35, 0.35],
+];
+const STACK_OFFSETS_2: [number, number][] = [
+  [-0.25, -0.25],
+  [0.25, 0.25],
+];
+const STACK_OFFSETS_3: [number, number][] = [
+  [-0.3, -0.2],
+  [0.3, -0.2],
+  [0, 0.3],
+];
+
+function getStackOffset(count: number, index: number): [number, number] {
+  if (count <= 1) return [0, 0];
+  if (count === 2) return STACK_OFFSETS_2[index] || [0, 0];
+  if (count === 3) return STACK_OFFSETS_3[index] || [0, 0];
+  return STACK_OFFSETS[index] || [0, 0];
+}
 
 const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
   const cur = state.players[state.currentPlayerIndex];
@@ -48,7 +71,6 @@ const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
     return m;
   }, []);
 
-  /* Highlight destination cells */
   const highlightedCells = useMemo(() => {
     const set = new Set<string>();
     if (!state.hasRolled || !state.diceValue) return set;
@@ -69,6 +91,21 @@ const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
     return set;
   }, [state, validMoves]);
 
+  /* Group tokens by their coordinate to handle stacking */
+  const tokenGroups = useMemo(() => {
+    const groups = new Map<string, { color: PlayerColor; tokenId: number; position: number; r: number; c: number }[]>();
+    for (const p of state.players) {
+      for (const token of state.tokens[p.color]) {
+        const [r, c] = getTokenCoordinates(p.color, token.id, token.position);
+        // Round to 1 decimal to group tokens at same logical cell
+        const key = `${r.toFixed(1)},${c.toFixed(1)}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push({ color: p.color, tokenId: token.id, position: token.position, r, c });
+      }
+    }
+    return groups;
+  }, [state.tokens, state.players]);
+
   const quadrantColor = (r: number, c: number): PlayerColor | null => {
     if (r <= 5 && c <= 5) return 'red';
     if (r <= 5 && c >= 9) return 'green';
@@ -88,22 +125,31 @@ const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
     const quad = quadrantColor(r, c);
     if (quad) {
       if (isInnerHome(r, c)) return '#FFFFFF';
-      return C[quad].main; // full vivid color like reference
+      return C[quad].main;
     }
-    // Center area
     if (r >= 6 && r <= 8 && c >= 6 && c <= 8) return 'transparent';
-    // Home stretch - full color
     const sc = stretchMap.get(`${r},${c}`);
     if (sc) return C[sc].main;
-    // Track cells at start positions - colored
     const tp = trackMap.get(`${r},${c}`);
     if (tp !== undefined && startColors[tp]) return C[startColors[tp]].track;
-    // Safe positions with star - slightly tinted
     if (tp !== undefined && STAR_POSITIONS.includes(tp)) return '#F5ECD7';
     return BOARD_BG;
   };
 
-  const pct = (v: number) => `${(v / 15) * 100}%`;
+  /* Convert grid coordinate to percentage for absolute positioning.
+     +0.5 to center in the cell (each cell is 1/15 of the board). */
+  const pctX = (col: number) => `${((col + 0.5) / 15) * 100}%`;
+  const pctY = (row: number) => `${((row + 0.5) / 15) * 100}%`;
+
+  /* For home positions which are already fractional and meant to be cell-centers,
+     we use the raw coordinate mapped to the grid. Home positions like 1.5 mean
+     "center of cell at index 1-2 area". The board-data stores them as center coords
+     in the 0-14 grid space already. */
+  const pctRaw = (v: number) => `${(v / 15) * 100}%`;
+
+  /* Token size as percentage of board */
+  const TOKEN_SIZE = '5.8%';
+  const TOKEN_SIZE_STACKED = '4.6%';
 
   return (
     <div className="relative aspect-square w-full max-w-[min(90vw,520px)] mx-auto select-none">
@@ -144,17 +190,15 @@ const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
                 }}
               >
                 {isStar && (
-                  <span className="text-[0.55rem] sm:text-sm text-white drop-shadow-md" style={{
-                    textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-                  }}>★</span>
+                  <span className="text-[0.55rem] sm:text-sm text-white drop-shadow-md"
+                    style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>★</span>
                 )}
                 {isSafe && !isStart && (
                   <span className="text-[0.4rem] sm:text-xs opacity-40">★</span>
                 )}
                 {isStart && !isStar && (
-                  <span className="text-[0.4rem] sm:text-xs opacity-50" style={{ color: C[startColors[tp!]].dark }}>
-                    ▶
-                  </span>
+                  <span className="text-[0.4rem] sm:text-xs opacity-50"
+                    style={{ color: C[startColors[tp!]].dark }}>▶</span>
                 )}
                 {isHighlighted && (
                   <motion.div
@@ -170,7 +214,7 @@ const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
         </div>
       </div>
 
-      {/* Center triangles SVG overlay */}
+      {/* Center triangles SVG */}
       <svg
         className="absolute pointer-events-none z-[5]"
         style={{
@@ -195,9 +239,9 @@ const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
             key={`m-${p.color}-${i}`}
             className="absolute rounded-full pointer-events-none z-[2]"
             style={{
-              left: pct(c), top: pct(r),
+              left: pctRaw(c), top: pctRaw(r),
               width: '4.8%', height: '4.8%',
-              marginLeft: '-2.4%', marginTop: '-2.4%',
+              transform: 'translate(-50%, -50%)',
               border: `2px dashed ${C[p.color].main}55`,
               backgroundColor: `${C[p.color].main}10`,
             }}
@@ -205,44 +249,81 @@ const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
         ))
       )}
 
-      {/* Tokens */}
-      {state.players.flatMap(p =>
-        state.tokens[p.color].map(token => {
-          const [r, c] = getTokenCoordinates(p.color, token.id, token.position);
-          const valid = p.color === cur.color && validMoves.includes(token.id);
+      {/* Tokens - pawn style, with stacking */}
+      {Array.from(tokenGroups.values()).flatMap(group => {
+        const count = group.length;
+        return group.map((tok, idx) => {
+          const valid = tok.color === cur.color && validMoves.includes(tok.tokenId);
+          const isHome = tok.position === -1;
+          const offset = getStackOffset(count, idx);
+          const size = count > 1 && !isHome ? TOKEN_SIZE_STACKED : TOKEN_SIZE;
+
+          // For home positions (fractional), use raw mapping
+          // For track positions (integer grid cells), center in cell with +0.5
+          const isGridCell = Number.isInteger(tok.r) && Number.isInteger(tok.c);
+
+          const leftPos = isGridCell ? pctX(tok.c) : pctRaw(tok.c);
+          const topPos = isGridCell ? pctY(tok.r) : pctRaw(tok.r);
+
           return (
             <motion.div
-              key={`${p.color}-${token.id}`}
-              animate={{ left: pct(c), top: pct(r) }}
-              transition={{ type: 'spring', stiffness: 280, damping: 22 }}
-              onClick={() => valid && onTokenClick(token.id)}
-              className={`absolute flex items-center justify-center rounded-full z-[10]
-                ${valid ? 'cursor-pointer z-[20]' : ''}`}
-              style={{
-                width: '5%', height: '5%',
-                marginLeft: '-2.5%', marginTop: '-2.5%',
-                background: `radial-gradient(ellipse at 35% 30%, ${C[p.color].light} 0%, ${C[p.color].main} 50%, ${C[p.color].dark} 100%)`,
-                border: `2px solid ${C[p.color].dark}`,
-                boxShadow: valid
-                  ? `0 0 0 3px ${C[p.color].light}AA, 0 0 14px ${C[p.color].main}88`
-                  : `0 3px 8px rgba(0,0,0,0.4), inset 0 1px 3px rgba(255,255,255,0.35)`,
+              key={`${tok.color}-${tok.tokenId}`}
+              animate={{
+                left: leftPos,
+                top: topPos,
+                x: `calc(-50% + ${offset[1] * 12}px)`,
+                y: `calc(-50% + ${offset[0] * 12}px)`,
               }}
+              transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+              onClick={() => valid && onTokenClick(tok.tokenId)}
+              className={`absolute z-[10] ${valid ? 'cursor-pointer z-[20]' : ''}`}
+              style={{ width: size, height: size }}
             >
-              <span className="text-white text-[0.35rem] sm:text-[0.55rem] font-bold drop-shadow-md select-none">
-                {token.id + 1}
-              </span>
+              {/* Pawn shape SVG */}
+              <svg viewBox="0 0 40 52" className="w-full h-full drop-shadow-lg" style={{
+                filter: valid
+                  ? `drop-shadow(0 0 6px ${C[tok.color].light}) drop-shadow(0 0 12px ${C[tok.color].main}88)`
+                  : 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))',
+              }}>
+                {/* Base */}
+                <ellipse cx="20" cy="48" rx="14" ry="4"
+                  fill={C[tok.color].dark} />
+                {/* Body */}
+                <path
+                  d="M8,46 C8,34 6,28 12,22 C12,22 10,18 10,14 C10,6 14,2 20,2 C26,2 30,6 30,14 C30,18 28,22 28,22 C34,28 32,34 32,46 Z"
+                  fill={`url(#pawnGrad-${tok.color})`}
+                  stroke={C[tok.color].dark}
+                  strokeWidth="1.5"
+                />
+                {/* Head highlight */}
+                <circle cx="20" cy="13" r="6.5"
+                  fill={C[tok.color].light}
+                  stroke={C[tok.color].dark}
+                  strokeWidth="1" />
+                <circle cx="18" cy="11" r="2.5"
+                  fill="rgba(255,255,255,0.5)" />
+                {/* Gradient defs */}
+                <defs>
+                  <linearGradient id={`pawnGrad-${tok.color}`} x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor={C[tok.color].light} />
+                    <stop offset="50%" stopColor={C[tok.color].main} />
+                    <stop offset="100%" stopColor={C[tok.color].dark} />
+                  </linearGradient>
+                </defs>
+              </svg>
+              {/* Pulse ring for valid moves */}
               {valid && (
                 <motion.div
                   className="absolute inset-[-4px] rounded-full"
-                  animate={{ scale: [1, 1.4, 1], opacity: [0.9, 0, 0.9] }}
+                  animate={{ scale: [1, 1.5, 1], opacity: [0.8, 0, 0.8] }}
                   transition={{ repeat: Infinity, duration: 0.8 }}
-                  style={{ border: `2px solid ${C[p.color].light}` }}
+                  style={{ border: `2px solid ${C[tok.color].light}` }}
                 />
               )}
             </motion.div>
           );
-        })
-      )}
+        });
+      })}
     </div>
   );
 };
