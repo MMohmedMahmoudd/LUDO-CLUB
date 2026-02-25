@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { GameState, PlayerColor } from '@/lib/types';
 import {
@@ -10,6 +10,10 @@ interface Props {
   state: GameState;
   validMoves: number[];
   onTokenClick: (id: number) => void;
+  diceValue: number | null;
+  canRoll: boolean;
+  onRoll: () => void;
+  currentPlayerColor: PlayerColor;
 }
 
 const C: Record<PlayerColor, { main: string; light: string; dark: string; track: string }> = {
@@ -54,8 +58,34 @@ function getStackOffset(count: number, index: number): [number, number] {
   return STACK_OFFSETS[index] || [0, 0];
 }
 
-const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
+const DICE_DOTS: Record<number, [number, number][]> = {
+  1: [[50, 50]],
+  2: [[30, 30], [70, 70]],
+  3: [[30, 30], [50, 50], [70, 70]],
+  4: [[30, 30], [70, 30], [30, 70], [70, 70]],
+  5: [[30, 30], [70, 30], [50, 50], [30, 70], [70, 70]],
+  6: [[30, 22], [70, 22], [30, 50], [70, 50], [30, 78], [70, 78]],
+};
+
+const DICE_QUADRANT_POS: Record<PlayerColor, { left: string; top: string }> = {
+  red:    { left: '20%', top: '20%' },
+  green:  { left: '80%', top: '20%' },
+  blue:   { left: '80%', top: '80%' },
+  yellow: { left: '20%', top: '80%' },
+};
+
+const GameBoard = ({ state, validMoves, onTokenClick, diceValue, canRoll, onRoll, currentPlayerColor }: Props) => {
   const cur = state.players[state.currentPlayerIndex];
+  const [isRolling, setIsRolling] = useState(false);
+
+  const handleRoll = () => {
+    if (!canRoll) return;
+    setIsRolling(true);
+    setTimeout(() => {
+      setIsRolling(false);
+      onRoll();
+    }, 450);
+  };
 
   const trackMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -152,7 +182,7 @@ const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
   const TOKEN_SIZE_STACKED = '4.6%';
 
   return (
-    <div className="relative aspect-square w-full max-w-[min(90vw,520px)] mx-auto select-none">
+    <div className="relative aspect-square w-full max-w-[min(100vw,600px)] mx-auto select-none">
       {/* Board with dark blue frame */}
       <div
         className="absolute inset-0 rounded-2xl"
@@ -248,6 +278,82 @@ const GameBoard = ({ state, validMoves, onTokenClick }: Props) => {
           />
         ))
       )}
+
+      {/* Dice in active player's quadrant */}
+      {(() => {
+        const dPos = DICE_QUADRANT_POS[currentPlayerColor];
+        return (
+          <div
+            className="absolute z-[15] flex flex-col items-center gap-0.5"
+            style={{
+              left: dPos.left,
+              top: dPos.top,
+              transform: 'translate(-50%, -50%)',
+            }}
+          >
+            <motion.button
+              onClick={handleRoll}
+              disabled={!canRoll}
+              animate={isRolling ? {
+                rotateX: [0, 360, 720],
+                rotateZ: [0, 90, 0],
+                scale: [1, 0.7, 1.1, 1],
+              } : {}}
+              transition={isRolling ? { duration: 0.45, ease: 'easeInOut' } : {}}
+              whileTap={canRoll ? { scale: 0.85 } : undefined}
+              whileHover={canRoll ? { scale: 1.1 } : undefined}
+              className="relative select-none"
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: 'linear-gradient(145deg, #ffffff, #f0f0f0)',
+                border: `3px solid ${canRoll ? C[currentPlayerColor].main : '#999'}`,
+                boxShadow: canRoll
+                  ? `0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px ${C[currentPlayerColor].main}33`
+                  : '0 4px 12px rgba(0,0,0,0.2)',
+                cursor: canRoll ? 'pointer' : 'default',
+              }}
+            >
+              {diceValue && !isRolling ? (
+                <motion.div
+                  key={diceValue}
+                  initial={{ rotateZ: 120, scale: 0.2, opacity: 0 }}
+                  animate={{ rotateZ: 0, scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.25, type: 'spring', stiffness: 350 }}
+                  className="w-full h-full relative"
+                >
+                  {DICE_DOTS[diceValue].map(([x, y], i) => (
+                    <div
+                      key={i}
+                      className="absolute rounded-full"
+                      style={{
+                        left: `${x}%`, top: `${y}%`,
+                        transform: 'translate(-50%,-50%)',
+                        width: 7, height: 7,
+                        backgroundColor: '#1a1a2e',
+                        boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)',
+                      }}
+                    />
+                  ))}
+                </motion.div>
+              ) : !isRolling ? (
+                <span className="text-xl">🎲</span>
+              ) : null}
+            </motion.button>
+            {canRoll && !isRolling && (
+              <motion.span
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ repeat: Infinity, duration: 1.3 }}
+                className="text-[0.5rem] font-bold tracking-widest uppercase"
+                style={{ color: C[currentPlayerColor].main }}
+              >
+                ROLL
+              </motion.span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Tokens - pawn style, with stacking */}
       {Array.from(tokenGroups.values()).flatMap(group => {
