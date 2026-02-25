@@ -58,6 +58,18 @@ const Index = () => {
                 </button>
               ),
             )}
+            <button
+              onClick={() => nav('/lobby')}
+              className="w-full py-4 px-6 rounded-xl border-2 transition-all text-lg font-semibold
+                flex items-center gap-3"
+              style={{
+                background: 'linear-gradient(135deg, #1A237E, #283593)',
+                borderColor: '#3949AB',
+                color: 'white',
+              }}
+            >
+              <span className="text-2xl">🌐</span>Play Online
+            </button>
           </motion.div>
         ) : (
           <motion.div
