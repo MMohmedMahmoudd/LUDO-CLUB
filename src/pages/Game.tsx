@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/gameStore';
 import GameBoard from '@/components/game/GameBoard';
-import Dice from '@/components/game/Dice';
 import PlayerPanel from '@/components/game/PlayerPanel';
 import { getAIMove } from '@/lib/game-engine';
 
@@ -64,7 +63,7 @@ const Game = () => {
       style={{ background: 'linear-gradient(180deg, #0D1B2A 0%, #1B2838 40%, #1A237E 100%)' }}
     >
       {/* Top bar */}
-      <div className="flex items-center w-full max-w-[520px] px-3 py-2">
+      <div className="flex items-center w-full px-3 py-2">
         <button
           onClick={() => { resetGame(); nav('/'); }}
           className="text-white/60 hover:text-white transition-colors text-xs px-3 py-1.5 rounded-lg hover:bg-white/10 shrink-0"
@@ -88,7 +87,7 @@ const Game = () => {
       </div>
 
       {/* Player panels - top row */}
-      <div className="flex gap-2 justify-center w-full max-w-[520px] px-3 pb-2">
+      <div className="flex gap-2 justify-center w-full px-3 pb-2">
         {state.players.map(p => (
           <PlayerPanel
             key={p.color}
@@ -99,17 +98,16 @@ const Game = () => {
         ))}
       </div>
 
-      {/* Board */}
-      <div className="px-3 w-full flex justify-center">
-        <GameBoard state={state} validMoves={validMoves} onTokenClick={selectToken} />
-      </div>
-
-      {/* Dice - bottom center */}
-      <div className="py-3">
-        <Dice
-          value={state.diceValue}
-          onRoll={canRoll ? rollDice : undefined}
-          playerColor={curColor}
+      {/* Board with integrated dice */}
+      <div className="px-1 w-full flex justify-center flex-1">
+        <GameBoard
+          state={state}
+          validMoves={validMoves}
+          onTokenClick={selectToken}
+          diceValue={state.diceValue}
+          canRoll={canRoll}
+          onRoll={rollDice}
+          currentPlayerColor={cur.color}
         />
       </div>
 

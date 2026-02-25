@@ -98,7 +98,8 @@ export function executeMove(state: GameState, tokenId: number): GameState {
     }
   }
 
-  if (token.position === 57) {
+  const finished = token.position === 57;
+  if (finished) {
     player.tokensFinished++;
     if (player.tokensFinished === 4) {
       s.gameStatus = 'finished';
@@ -108,12 +109,16 @@ export function executeMove(state: GameState, tokenId: number): GameState {
     }
   }
 
-  if (dice === 6 || killed) {
+  if (dice === 6 || killed || finished) {
     s.canRollAgain = true;
     s.consecutiveSixes = dice === 6 ? s.consecutiveSixes + 1 : 0;
-    s.message = killed
-      ? `${player.name} captured! Extra turn!`
-      : `${player.name} rolled 6! Extra turn!`;
+    if (finished) {
+      s.message = `${player.name} reached home! Extra turn!`;
+    } else if (killed) {
+      s.message = `${player.name} captured! Extra turn!`;
+    } else {
+      s.message = `${player.name} rolled 6! Extra turn!`;
+    }
   } else {
     s.currentPlayerIndex = (s.currentPlayerIndex + 1) % s.players.length;
     s.consecutiveSixes = 0;
