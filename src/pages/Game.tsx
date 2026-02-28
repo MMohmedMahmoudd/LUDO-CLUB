@@ -59,14 +59,14 @@ const Game = () => {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center"
+      className="min-h-screen w-full flex flex-col items-center justify-center overflow-hidden"
       style={{ background: 'linear-gradient(180deg, #0D1B2A 0%, #1B2838 40%, #1A237E 100%)' }}
     >
       {/* Top bar */}
-      <div className="flex items-center w-full px-3 py-2">
+      <div className="flex items-center w-full px-2 sm:px-4 py-2 shrink-0">
         <button
           onClick={() => { resetGame(); nav('/'); }}
-          className="text-white/60 hover:text-white transition-colors text-xs px-3 py-1.5 rounded-lg hover:bg-white/10 shrink-0"
+          className="text-white/60 hover:text-white transition-colors text-xs px-2 sm:px-3 py-1.5 rounded-lg hover:bg-white/10 shrink-0"
         >
           ← Menu
         </button>
@@ -77,29 +77,30 @@ const Game = () => {
           className="flex items-center justify-center gap-2 flex-1"
         >
           <div
-            className="w-2.5 h-2.5 rounded-full shrink-0"
+            className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full shrink-0"
             style={{ backgroundColor: curColor, boxShadow: `0 0 10px ${curColor}` }}
           />
-          <span className="text-white text-xs sm:text-sm font-bold text-center">
+          <span className="text-white text-[10px] sm:text-xs md:text-sm font-bold text-center line-clamp-2">
             {state.message}
           </span>
         </motion.div>
       </div>
 
-      {/* Player panels - top row */}
-      <div className="flex gap-2 justify-center w-full px-3 pb-2">
+      {/* Player panels - responsive grid */}
+      <div className="flex flex-wrap gap-1 sm:gap-2 justify-center w-full px-1 sm:px-3 pb-1 sm:pb-2 shrink-0">
         {state.players.map(p => (
-          <PlayerPanel
-            key={p.color}
-            player={p}
-            isActive={p.color === cur.color}
-            tokens={state.tokens[p.color]}
-          />
+          <div key={p.color} className="flex-shrink-0">
+            <PlayerPanel
+              player={p}
+              isActive={p.color === cur.color}
+              tokens={state.tokens[p.color]}
+            />
+          </div>
         ))}
       </div>
 
-      {/* Board with integrated dice */}
-      <div className="px-1 w-full flex justify-center flex-1">
+      {/* Board - takes remaining full width and height */}
+      <div className="w-full px-1 sm:px-2 flex justify-center items-center flex-1 min-h-0">
         <GameBoard
           state={state}
           validMoves={validMoves}

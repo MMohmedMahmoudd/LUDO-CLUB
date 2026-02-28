@@ -5,6 +5,7 @@ import {
   MAIN_TRACK, HOME_STRETCH, STAR_POSITIONS, PLAYER_START, HOME_POSITIONS, SAFE_POSITIONS,
 } from '@/lib/board-data';
 import { getTokenCoordinates, getAbsolutePosition } from '@/lib/game-engine';
+import { renderTokenShape } from '@/components/game/TokenShape';
 
 interface Props {
   state: GameState;
@@ -182,7 +183,7 @@ const GameBoard = ({ state, validMoves, onTokenClick, diceValue, canRoll, onRoll
   const TOKEN_SIZE_STACKED = '4.6%';
 
   return (
-    <div className="relative aspect-square w-full max-w-[min(100vw,600px)] mx-auto select-none">
+    <div className="relative aspect-square w-full max-w-3xl mx-auto select-none h-full">
       {/* Board with dark blue frame */}
       <div
         className="absolute inset-0 rounded-2xl"
@@ -355,7 +356,7 @@ const GameBoard = ({ state, validMoves, onTokenClick, diceValue, canRoll, onRoll
         );
       })()}
 
-      {/* Tokens - pawn style, with stacking */}
+      {/* Tokens - Custom chess-style shapes with color */}
       {Array.from(tokenGroups.values()).flatMap(group => {
         const count = group.length;
         return group.map((tok, idx) => {
@@ -371,6 +372,9 @@ const GameBoard = ({ state, validMoves, onTokenClick, diceValue, canRoll, onRoll
           const leftPos = isGridCell ? pctX(tok.c) : pctRaw(tok.c);
           const topPos = isGridCell ? pctY(tok.r) : pctRaw(tok.r);
 
+          // Get token shape from player profile or default to circle
+          const tokenShape = cur.profile?.tokenShape || 'circle';
+
           return (
             <motion.div
               key={`${tok.color}-${tok.tokenId}`}
@@ -382,48 +386,25 @@ const GameBoard = ({ state, validMoves, onTokenClick, diceValue, canRoll, onRoll
               }}
               transition={{ type: 'spring', stiffness: 280, damping: 22 }}
               onClick={() => valid && onTokenClick(tok.tokenId)}
-              className={`absolute z-[10] ${valid ? 'cursor-pointer z-[20]' : ''}`}
-              style={{ width: size, height: size }}
+              className={`absolute z-[10] flex items-center justify-center
+                ${valid ? 'cursor-pointer z-[20]' : ''}
+                transition-transform hover:scale-110`}
+              style={{
+                width: size,
+                height: size,
+                filter: valid ? 'drop-shadow(0 0 12px rgba(255,255,255,0.8))' : 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))',
+              }}
             >
-              {/* Pawn shape SVG */}
-              <svg viewBox="0 0 40 52" className="w-full h-full drop-shadow-lg" style={{
-                filter: valid
-                  ? `drop-shadow(0 0 6px ${C[tok.color].light}) drop-shadow(0 0 12px ${C[tok.color].main}88)`
-                  : 'drop-shadow(0 2px 3px rgba(0,0,0,0.4))',
-              }}>
-                {/* Base */}
-                <ellipse cx="20" cy="48" rx="14" ry="4"
-                  fill={C[tok.color].dark} />
-                {/* Body */}
-                <path
-                  d="M8,46 C8,34 6,28 12,22 C12,22 10,18 10,14 C10,6 14,2 20,2 C26,2 30,6 30,14 C30,18 28,22 28,22 C34,28 32,34 32,46 Z"
-                  fill={`url(#pawnGrad-${tok.color})`}
-                  stroke={C[tok.color].dark}
-                  strokeWidth="1.5"
-                />
-                {/* Head highlight */}
-                <circle cx="20" cy="13" r="6.5"
-                  fill={C[tok.color].light}
-                  stroke={C[tok.color].dark}
-                  strokeWidth="1" />
-                <circle cx="18" cy="11" r="2.5"
-                  fill="rgba(255,255,255,0.5)" />
-                {/* Gradient defs */}
-                <defs>
-                  <linearGradient id={`pawnGrad-${tok.color}`} x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor={C[tok.color].light} />
-                    <stop offset="50%" stopColor={C[tok.color].main} />
-                    <stop offset="100%" stopColor={C[tok.color].dark} />
-                  </linearGradient>
-                </defs>
-              </svg>
+              {/* Custom SVG shape based on player's token shape selection */}
+              {renderTokenShape(tokenShape, tok.color, size)}
+              
               {/* Pulse ring for valid moves */}
               {valid && (
                 <motion.div
-                  className="absolute inset-[-4px] rounded-full"
-                  animate={{ scale: [1, 1.5, 1], opacity: [0.8, 0, 0.8] }}
+                  className="absolute inset-[-12px] rounded-full border-2"
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.8, 0.2, 0.8] }}
                   transition={{ repeat: Infinity, duration: 0.8 }}
-                  style={{ border: `2px solid ${C[tok.color].light}` }}
+                  style={{ borderColor: C[tok.color].light }}
                 />
               )}
             </motion.div>

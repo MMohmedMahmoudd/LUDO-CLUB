@@ -1,4 +1,5 @@
 export type PlayerColor = 'red' | 'green' | 'blue' | 'yellow';
+export type TokenShape = 'circle' | 'horse' | 'lion' | 'wolf' | 'bomb' | 'star' | 'heart';
 
 export interface TokenState {
   id: number;
@@ -6,11 +7,19 @@ export interface TokenState {
   position: number; // -1=home, 0-50=track(relative), 51-56=homeStretch, 57=finished
 }
 
+export interface PlayerProfile {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  tokenShape: TokenShape;
+}
+
 export interface Player {
   color: PlayerColor;
   name: string;
   isAI: boolean;
   tokensFinished: number;
+  profile?: PlayerProfile;
 }
 
 export interface GameState {

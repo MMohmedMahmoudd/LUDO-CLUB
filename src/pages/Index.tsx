@@ -2,18 +2,20 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/gameStore';
-import { GameMode, AILevel } from '@/lib/types';
+import { GameMode, AILevel, TokenShape } from '@/lib/types';
+import { ALL_TOKEN_SHAPES, TOKEN_SHAPES, TOKEN_SHAPE_LABELS } from '@/lib/token-shapes';
 
 const Index = () => {
-  const [step, setStep] = useState<'menu' | 'settings'>('menu');
+  const [step, setStep] = useState<'menu' | 'settings' | 'shapes'>('menu');
   const [mode, setMode] = useState<GameMode>('ai');
   const [count, setCount] = useState(2);
   const [ai, setAi] = useState<AILevel>('medium');
+  const [tokenShape, setTokenShape] = useState<TokenShape>('circle');
   const nav = useNavigate();
   const init = useGameStore(s => s.initGame);
 
   const go = (m: GameMode) => { setMode(m); setStep('settings'); };
-  const start = () => { init(mode, count, ai); nav('/game'); };
+  const start = () => { init(mode, count, ai, tokenShape); nav('/game'); };
 
   const sel = (active: boolean) =>
     active
@@ -70,8 +72,16 @@ const Index = () => {
             >
               <span className="text-2xl">🌐</span>Play Online
             </button>
+            <button
+              onClick={() => nav('/preview')}
+              className="w-full py-4 px-6 rounded-xl bg-card border-2 border-border
+                hover:border-primary transition-all text-foreground text-lg font-semibold
+                flex items-center gap-3"
+            >
+              <span className="text-2xl">👁️</span>View Board Preview
+            </button>
           </motion.div>
-        ) : (
+        ) : step === 'settings' ? (
           <motion.div
             key="settings"
             initial={{ y: 20, opacity: 0 }}
@@ -105,12 +115,50 @@ const Index = () => {
               </div>
             )}
 
+            <button onClick={() => setStep('shapes')}
+              className="w-full py-4 rounded-xl bg-primary text-primary-foreground text-lg font-bold
+                hover:opacity-90 transition-opacity">
+              Choose Token Shape →
+            </button>
+            <button onClick={() => setStep('menu')}
+              className="text-muted-foreground text-sm hover:text-foreground transition-colors">
+              ← Back
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="shapes"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            className="flex flex-col gap-6 w-full max-w-sm"
+          >
+            <div>
+              <label className="text-sm text-muted-foreground mb-4 block text-center">Select Your Token Shape</label>
+              <div className="grid grid-cols-3 gap-3">
+                {ALL_TOKEN_SHAPES.map(shape => (
+                  <button
+                    key={shape}
+                    onClick={() => setTokenShape(shape)}
+                    className={`py-4 px-3 rounded-lg transition-all border-2 flex flex-col items-center gap-2
+                      ${tokenShape === shape 
+                        ? 'bg-primary border-primary text-primary-foreground' 
+                        : 'bg-card border-border text-foreground hover:border-primary'
+                      }`}
+                  >
+                    <span className="text-3xl">{TOKEN_SHAPES[shape]}</span>
+                    <span className="text-xs font-semibold">{TOKEN_SHAPE_LABELS[shape]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button onClick={start}
               className="w-full py-4 rounded-xl bg-primary text-primary-foreground text-lg font-bold
                 hover:opacity-90 transition-opacity">
               Start Game 🎲
             </button>
-            <button onClick={() => setStep('menu')}
+            <button onClick={() => setStep('settings')}
               className="text-muted-foreground text-sm hover:text-foreground transition-colors">
               ← Back
             </button>

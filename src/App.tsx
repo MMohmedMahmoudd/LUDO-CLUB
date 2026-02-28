@@ -8,6 +8,7 @@ import Game from "./pages/Game";
 import Auth from "./pages/Auth";
 import Lobby from "./pages/Lobby";
 import Room from "./pages/Room";
+import Preview from "./pages/Preview";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/lobby" element={<Lobby />} />
           <Route path="/room/:code" element={<Room />} />
+          <Route path="/preview" element={<Preview />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

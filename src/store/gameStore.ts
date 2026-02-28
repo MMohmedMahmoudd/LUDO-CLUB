@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, PlayerColor, GameMode, AILevel } from '@/lib/types';
+import { GameState, PlayerColor, GameMode, AILevel, TokenShape } from '@/lib/types';
 import {
   createInitialState, rollDice as roll, getValidMoves, executeMove,
 } from '@/lib/game-engine';
@@ -9,12 +9,14 @@ interface GameStore {
   gameMode: GameMode | null;
   aiLevel: AILevel;
   validMoves: number[];
-  initGame: (mode: GameMode, count: number, ai?: AILevel) => void;
+  playerTokenShape: TokenShape;
+  initGame: (mode: GameMode, count: number, ai?: AILevel, tokenShape?: TokenShape) => void;
   rollDice: () => void;
   selectToken: (id: number) => void;
   skipTurn: () => void;
   resetGame: () => void;
   restartGame: () => void;
+  setTokenShape: (shape: TokenShape) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -22,14 +24,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameMode: null,
   aiLevel: 'medium',
   validMoves: [],
+  playerTokenShape: 'circle',
 
-  initGame: (mode, count, ai = 'medium') => {
+  initGame: (mode, count, ai = 'medium', tokenShape = 'circle') => {
     const all: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
     const colors = all.slice(0, count);
     const aiPlayers = mode === 'ai' ? colors.slice(1) : [];
+    const gameState = createInitialState(colors, aiPlayers);
+    
+    // Add profile to the first player (human player) with selected token shape
+    if (gameState.players.length > 0) {
+      gameState.players[0].profile = {
+        id: 'player-1',
+        username: gameState.players[0].name,
+        avatar_url: null,
+        tokenShape,
+      };
+    }
+    
     set({
-      state: createInitialState(colors, aiPlayers),
-      gameMode: mode, aiLevel: ai, validMoves: [],
+      state: gameState,
+      gameMode: mode,
+      aiLevel: ai,
+      validMoves: [],
+      playerTokenShape: tokenShape,
     });
   },
 
@@ -69,10 +87,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetGame: () => set({ state: null, gameMode: null, validMoves: [] }),
 
   restartGame: () => {
-    const { state, gameMode, aiLevel } = get();
+    const { state, gameMode, aiLevel, playerTokenShape } = get();
     if (!state || !gameMode) return;
     const colors = state.players.map(p => p.color);
     const ais = state.players.filter(p => p.isAI).map(p => p.color);
-    set({ state: createInitialState(colors, ais), validMoves: [] });
+    const gameState = createInitialState(colors, ais);
+    
+    // Re-add profile to the first player (human player)
+    if (gameState.players.length > 0) {
+      gameState.players[0].profile = {
+        id: 'player-1',
+        username: gameState.players[0].name,
+        avatar_url: null,
+        tokenShape: playerTokenShape,
+      };
+    }
+    
+    set({ state: gameState, validMoves: [] });
   },
-}));
+
+  setTokenShape: (shape) => set({ playerTokenShape: shape }),
+}))
