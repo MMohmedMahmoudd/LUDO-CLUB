@@ -3,7 +3,7 @@ import { PlayerColor } from './types';
 interface TokenShapeProps {
   color: PlayerColor;
   shape: string;
-  size: string;
+  size?: string | number;
 }
 
 const C: Record<PlayerColor, { main: string; light: string; dark: string }> = {
@@ -17,7 +17,7 @@ const C: Record<PlayerColor, { main: string; light: string; dark: string }> = {
  * Custom SVG token shapes - Chess-style designs
  * Each token is rendered as a custom shape matching the player's color
  */
-export const renderTokenShape = (shape: string, color: PlayerColor, size: string) => {
+export const renderTokenShape = (shape: string, color: PlayerColor, size?: string | number) => {
   const colorObj = C[color];
 
   switch (shape) {

@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { createInitialState } from '@/lib/game-engine';
+import type { PlayerColor, PlayerProfile, GameState } from '@/lib/types';
+import { renderTokenShape } from '@/components/game/TokenShape';
 
 const PLAYER_COLORS: Record<string, string> = {
   red: '#E53935', green: '#43A047', blue: '#1E88E5', yellow: '#FDD835',
@@ -80,8 +83,17 @@ const Room = () => {
         setRoom(payload.new);
         if ((payload.new as any).status === 'playing') {
           toast.success('Game starting!');
-          // In a full implementation, this would transition to the game
+          // other players should navigate once they know game id via the games insert event
         }
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'games',
+        filter: `room_id=eq.${room.id}`,
+      }, (payload) => {
+        const gid = (payload.new as any).id;
+        nav(`/game?room=${room.code}&game=${gid}`);
       })
       .subscribe();
 
@@ -111,6 +123,54 @@ const Room = () => {
       <span className="text-white/50">Loading room...</span>
     </div>
   );
+
+  // helper: build initial GameState from members
+  const buildInitialState = (): GameState | null => {
+    if (!room || members.length === 0) return null;
+    const colors: PlayerColor[] = [];
+    const profiles: PlayerProfile[] = [];
+    const order: PlayerColor[] = ['red','green','blue','yellow'];
+    order.forEach(col => {
+      const m = members.find(m => m.player_color === col);
+      if (m && m.profiles) {
+        colors.push(col);
+        profiles.push({
+          id: m.profile_id,
+          username: (m.profiles as any).username,
+          avatar_url: (m.profiles as any).avatar_url,
+          tokenShape: (m.profiles as any).token_skin as any || 'circle',
+        });
+      }
+    });
+    const state = createInitialState(colors, []);
+    state.players.forEach((p, i) => {
+      p.profile = profiles[i];
+    });
+    return state;
+  };
+
+  const handleStart = async () => {
+    if (!room) return;
+    try {
+      const initial = buildInitialState();
+      if (!initial) return;
+      const { data: game, error } = await supabase
+        .from('games')
+        // cast state to any/Json so TS is happy
+        .insert({ room_id: room.id, state: initial as any })
+        .select()
+        .single();
+      if (error) throw error;
+      // mark room as playing
+      await supabase
+        .from('rooms')
+        .update({ status: 'playing' })
+        .eq('id', room.id);
+      nav(`/game?room=${room.code}&game=${game.id}`);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
 
   return (
     <div
@@ -171,6 +231,11 @@ const Room = () => {
                 <div className="flex-1">
                   <p className={`text-sm font-semibold ${member ? 'text-white' : 'text-white/30'}`}>
                     {member ? (member.profiles as any)?.username : 'Waiting...'}
+                    {member && (
+                      <span className="inline-block ml-1 align-middle">
+                        {renderTokenShape((member.profiles as any).token_skin || 'circle', color, '16')}
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs capitalize" style={{ color: PLAYER_COLORS[color] + '99' }}>
                     {color}
@@ -192,7 +257,7 @@ const Room = () => {
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            onClick={() => toast.info('Online game sync coming soon! Play locally for now.')}
+            onClick={handleStart}
             className="w-full py-4 rounded-2xl font-bold text-white text-sm"
             style={{ background: 'linear-gradient(135deg, #43A047, #66BB6A)' }}
           >

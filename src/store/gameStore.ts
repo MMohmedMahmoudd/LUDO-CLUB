@@ -11,6 +11,8 @@ interface GameStore {
   validMoves: number[];
   playerTokenShape: TokenShape;
   initGame: (mode: GameMode, count: number, ai?: AILevel, tokenShape?: TokenShape) => void;
+  loadState: (state: GameState, mode: GameMode) => void;
+  setGameState: (state: GameState) => void;
   rollDice: () => void;
   selectToken: (id: number) => void;
   skipTurn: () => void;
@@ -107,4 +109,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setTokenShape: (shape) => set({ playerTokenShape: shape }),
+
+  // helpers used for online games
+  loadState: (state, mode) => {
+    set({ state, gameMode: mode, validMoves: getValidMoves(state) });
+  },
+  setGameState: (state) => {
+    set({ state, validMoves: getValidMoves(state) });
+  },
 }))

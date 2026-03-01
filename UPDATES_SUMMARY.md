@@ -85,17 +85,26 @@
 - `src/components/game/GameBoard.tsx` - Changed from `max-w-[min(100vw,600px)]` to `max-w-3xl`
 - `src/components/game/PlayerPanel.tsx` - Made responsive with mobile optimizations
 
-### 7. **Online Play Foundation** ✅
-**Ready For:**
-- Player profile system with IDs
-- Real-time multiplayer via Supabase (already configured)
-- Friends list integration
-- Game rooms with player management
+### 7. **Online Play – Basic Multiplayer Working** ✅
+**Features Implemented:**
+- Player profile system with IDs, avatars, and token shapes
+- Room creation/joining with unique 6‑character codes
+- Real‑time member list via Supabase realtime subscriptions
+- Starting a game creates a `games` record and transitions all players
+- In‑game state synchronization (moves, dice rolls, turn changes) through Supabase
 
-**Current Status:**
-- Room selection page exists (`src/pages/Room.tsx`)
-- Supabase integration ready in `src/integrations/supabase/client.ts`
-- Player profiles can now store user details
+**Files Added/Modified:**
+- `supabase/migrations/*_add_games_table.sql` (games table & policies)
+- `src/pages/Room.tsx` – handleStart, subscription to game inserts, UI improvements
+- `src/pages/Game.tsx` – online state loading & sync logic
+- `src/store/gameStore.ts` – new helpers for loading/setting remote state
+
+**Next Steps:**
+- Avatar display and chat in rooms
+- Friends list & leaderboards
+- Improved UI polish for lobby/rooms
+
+**Status:** multiplayer is now playable over the network 🎉
 
 ---
 

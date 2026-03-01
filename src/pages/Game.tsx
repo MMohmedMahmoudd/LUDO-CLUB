@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/gameStore';
 import GameBoard from '@/components/game/GameBoard';
 import PlayerPanel from '@/components/game/PlayerPanel';
 import { getAIMove } from '@/lib/game-engine';
+import { supabase } from '@/integrations/supabase/client';
+import type { GameState } from '@/lib/types';
 
 const PLAYER_COLORS: Record<string, string> = {
   red: '#E53935', green: '#43A047', blue: '#1E88E5', yellow: '#FDD835',
@@ -12,12 +14,70 @@ const PLAYER_COLORS: Record<string, string> = {
 
 const Game = () => {
   const nav = useNavigate();
+  const location = useLocation();
   const {
     state, validMoves, aiLevel,
     rollDice, selectToken, skipTurn, resetGame, restartGame,
+    setGameState,
+    loadState,
   } = useGameStore();
 
+  const [isOnlineGame, setIsOnlineGame] = useState(false);
+  const [onlineGameId, setOnlineGameId] = useState<string | null>(null);
+  const remoteUpdate = useRef(false);
+
   useEffect(() => { if (!state) nav('/'); }, [state, nav]);
+
+  // parse query params to detect online session
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const gid = params.get('game');
+    if (gid) {
+      setIsOnlineGame(true);
+      setOnlineGameId(gid);
+      // fetch initial state
+      supabase
+        .from('games')
+        .select('state')
+        .eq('id', gid)
+        .single()
+        .then(({ data, error }) => {
+          if (error) return;
+          if (data?.state) {
+            // payload from supabase is Json; coerce to GameState
+            loadState(data.state as unknown as GameState, 'online');
+          }
+        });
+      // subscribe for changes
+      const channel = supabase
+        .channel(`game-${gid}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'games',
+          filter: `id=eq.${gid}`,
+        }, payload => {
+          remoteUpdate.current = true;
+          setGameState((payload.new as any).state as GameState);
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [location.search, loadState, setGameState]);
+
+  // push local state to server when changed
+  useEffect(() => {
+    if (!isOnlineGame || !onlineGameId || !state) return;
+    if (remoteUpdate.current) {
+      remoteUpdate.current = false;
+      return;
+    }
+    supabase
+      .from('games')
+      .update({ state: state as any })
+      .eq('id', onlineGameId)
+      .then();
+  }, [state, isOnlineGame, onlineGameId]);
 
   // AI auto-play
   useEffect(() => {

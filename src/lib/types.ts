@@ -34,6 +34,6 @@ export interface GameState {
   winner: PlayerColor | null;
   message: string;
 }
-
-export type GameMode = 'ai' | 'local';
+ // (unchanged)
+export type GameMode = 'ai' | 'local' | 'online';
 export type AILevel = 'easy' | 'medium' | 'hard';
