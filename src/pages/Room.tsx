@@ -15,7 +15,7 @@ interface Member {
   id: string;
   profile_id: string;
   player_color: string;
-  profiles: { username: string; avatar_url: string | null };
+  profiles: { username: string; avatar_url: string | null; token_skin: string };
 }
 
 const Room = () => {
@@ -56,9 +56,33 @@ const Room = () => {
   const fetchMembers = async (roomId: string) => {
     const { data } = await supabase
       .from('room_members')
-      .select('*, profiles(username, avatar_url)')
-      .eq('room_id', roomId);
-    if (data) setMembers(data as any);
+      .select('*, profiles(username, avatar_url, token_skin)')
+      .eq('room_id', roomId)
+      .order('joined_at', { ascending: true });
+    if (!data) return;
+
+    // Resolve color conflicts: first member keeps their color, later ones get reassigned
+    const allColors: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
+    const usedColors = new Set<string>();
+    for (const m of data) {
+      if (m.player_color && !usedColors.has(m.player_color)) {
+        usedColors.add(m.player_color);
+      } else {
+        // Conflict or null — assign next available color
+        const available = allColors.find(c => !usedColors.has(c));
+        if (available) {
+          usedColors.add(available);
+          m.player_color = available;
+          // Update in DB (fire-and-forget)
+          supabase
+            .from('room_members')
+            .update({ player_color: available })
+            .eq('id', m.id)
+            .then();
+        }
+      }
+    }
+    setMembers(data as unknown as Member[]);
   };
 
   // Realtime subscription for members joining/leaving
@@ -145,6 +169,7 @@ const Room = () => {
     const state = createInitialState(colors, []);
     state.players.forEach((p, i) => {
       p.profile = profiles[i];
+      p.name = profiles[i].username;
     });
     return state;
   };
@@ -203,12 +228,11 @@ const Room = () => {
           <p className="text-white/60 text-xs font-semibold">
             Players ({members.length}/{room?.max_players || 4})
           </p>
-          {Array.from({ length: room?.max_players || 4 }).map((_, i) => {
-            const member = members[i];
-            const color = member?.player_color || ['red', 'green', 'blue', 'yellow'][i];
+          {(['red', 'green', 'blue', 'yellow'] as PlayerColor[]).slice(0, room?.max_players || 4).map((color, i) => {
+            const member = members.find(m => m.player_color === color);
             return (
               <motion.div
-                key={i}
+                key={color}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
@@ -232,7 +256,7 @@ const Room = () => {
                   <p className={`text-sm font-semibold ${member ? 'text-white' : 'text-white/30'}`}>
                     {member ? (member.profiles as any)?.username : 'Waiting...'}
                     {member && (
-                      <span className="inline-block ml-1 align-middle">
+                      <span className="inline-block ml-1 align-middle w-4 h-4">
                         {renderTokenShape((member.profiles as any).token_skin || 'circle', color, '16')}
                       </span>
                     )}

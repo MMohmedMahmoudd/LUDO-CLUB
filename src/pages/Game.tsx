@@ -16,25 +16,48 @@ const Game = () => {
   const nav = useNavigate();
   const location = useLocation();
   const {
-    state, validMoves, aiLevel,
+    state, validMoves, aiLevel, gameMode,
     rollDice, selectToken, skipTurn, resetGame, restartGame,
     setGameState,
     loadState,
+    setMyProfileId, isMyTurn,
   } = useGameStore();
 
   const [isOnlineGame, setIsOnlineGame] = useState(false);
   const [onlineGameId, setOnlineGameId] = useState<string | null>(null);
+  const [roomCode, setRoomCode] = useState<string | null>(null);
   const remoteUpdate = useRef(false);
 
-  useEffect(() => { if (!state) nav('/'); }, [state, nav]);
+  // Redirect to home only if no state AND not loading an online game
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const hasGameParam = params.has('game');
+    if (!state && !hasGameParam) nav('/');
+  }, [state, nav, location.search]);
 
   // parse query params to detect online session
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const gid = params.get('game');
+    const rc = params.get('room');
+    if (rc) setRoomCode(rc);
     if (gid) {
       setIsOnlineGame(true);
       setOnlineGameId(gid);
+
+      // fetch my profile id for turn ownership
+      const fetchProfile = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+        if (profile) setMyProfileId(profile.id);
+      };
+      fetchProfile();
+
       // fetch initial state
       supabase
         .from('games')
@@ -44,7 +67,6 @@ const Game = () => {
         .then(({ data, error }) => {
           if (error) return;
           if (data?.state) {
-            // payload from supabase is Json; coerce to GameState
             loadState(data.state as unknown as GameState, 'online');
           }
         });
@@ -63,7 +85,7 @@ const Game = () => {
         .subscribe();
       return () => { supabase.removeChannel(channel); };
     }
-  }, [location.search, loadState, setGameState]);
+  }, [location.search, loadState, setGameState, setMyProfileId]);
 
   // push local state to server when changed
   useEffect(() => {
@@ -101,6 +123,8 @@ const Game = () => {
     if (!state || state.gameStatus !== 'playing') return;
     const p = state.players[state.currentPlayerIndex];
     if (p.isAI || !state.hasRolled) return;
+    // In online mode, only auto-move/skip on my turn
+    if (isOnlineGame && !isMyTurn()) return;
     if (validMoves.length === 0) {
       const t = setTimeout(skipTurn, 1200);
       return () => clearTimeout(t);
@@ -111,10 +135,18 @@ const Game = () => {
     }
   }, [state?.hasRolled, validMoves.length]);
 
-  if (!state) return null;
+  if (!state) return (
+    <div className="min-h-screen flex items-center justify-center"
+      style={{ background: 'linear-gradient(180deg, #0D1B2A 0%, #1A237E 100%)' }}>
+      <span className="text-white/50">Loading game...</span>
+    </div>
+  );
 
   const cur = state.players[state.currentPlayerIndex];
-  const canRoll = !cur.isAI && !state.hasRolled && state.gameStatus === 'playing';
+  const myTurn = isMyTurn();
+  const canRoll = !cur.isAI && !state.hasRolled && state.gameStatus === 'playing'
+    && (!isOnlineGame || myTurn);
+  const canSelect = !isOnlineGame || myTurn;
   const curColor = PLAYER_COLORS[cur.color];
 
   return (
@@ -125,10 +157,13 @@ const Game = () => {
       {/* Top bar */}
       <div className="flex items-center w-full px-2 sm:px-4 py-2 shrink-0">
         <button
-          onClick={() => { resetGame(); nav('/'); }}
+          onClick={() => {
+            resetGame();
+            nav(isOnlineGame && roomCode ? `/room/${roomCode}` : '/');
+          }}
           className="text-white/60 hover:text-white transition-colors text-xs px-2 sm:px-3 py-1.5 rounded-lg hover:bg-white/10 shrink-0"
         >
-          ← Menu
+          {isOnlineGame ? '← Room' : '← Menu'}
         </button>
         <motion.div
           key={state.message}
@@ -164,7 +199,7 @@ const Game = () => {
         <GameBoard
           state={state}
           validMoves={validMoves}
-          onTokenClick={selectToken}
+          onTokenClick={canSelect ? selectToken : () => {}}
           diceValue={state.diceValue}
           canRoll={canRoll}
           onRoll={rollDice}
@@ -196,24 +231,37 @@ const Game = () => {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 className="text-7xl mb-4"
               >🏆</motion.div>
-              <h2 className="text-3xl font-black text-white mb-1 capitalize">
-                {state.winner} Wins!
-              </h2>
-              <p className="text-white/50 text-sm mb-6">Congratulations!</p>
+              {(() => {
+                const winnerPlayer = state.players.find(p => p.color === state.winner);
+                const winnerName = winnerPlayer?.profile?.username || winnerPlayer?.name || state.winner;
+                return (
+                  <>
+                    <h2 className="text-3xl font-black text-white mb-1">
+                      {winnerName} Wins!
+                    </h2>
+                    <p className="text-white/50 text-sm mb-6">Congratulations!</p>
+                  </>
+                );
+              })()}
               <div className="flex gap-3">
                 <button
-                  onClick={() => { resetGame(); nav('/'); }}
+                  onClick={() => {
+                    resetGame();
+                    nav(isOnlineGame && roomCode ? `/room/${roomCode}` : '/');
+                  }}
                   className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-semibold border border-white/20 hover:bg-white/20 transition-colors text-sm"
                 >
-                  Menu
+                  {isOnlineGame ? 'Room' : 'Menu'}
                 </button>
-                <button
-                  onClick={restartGame}
-                  className="flex-1 py-2.5 rounded-xl font-semibold text-white transition-colors text-sm"
-                  style={{ backgroundColor: PLAYER_COLORS[state.winner] }}
-                >
-                  Play Again
-                </button>
+                {!isOnlineGame && (
+                  <button
+                    onClick={restartGame}
+                    className="flex-1 py-2.5 rounded-xl font-semibold text-white transition-colors text-sm"
+                    style={{ backgroundColor: PLAYER_COLORS[state.winner] }}
+                  >
+                    Play Again
+                  </button>
+                )}
               </div>
             </motion.div>
           </motion.div>

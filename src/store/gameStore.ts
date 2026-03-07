@@ -10,15 +10,18 @@ interface GameStore {
   aiLevel: AILevel;
   validMoves: number[];
   playerTokenShape: TokenShape;
+  myProfileId: string | null;
   initGame: (mode: GameMode, count: number, ai?: AILevel, tokenShape?: TokenShape) => void;
-  loadState: (state: GameState, mode: GameMode) => void;
+  loadState: (state: GameState, mode: GameMode, profileId?: string) => void;
   setGameState: (state: GameState) => void;
+  setMyProfileId: (id: string) => void;
   rollDice: () => void;
   selectToken: (id: number) => void;
   skipTurn: () => void;
   resetGame: () => void;
   restartGame: () => void;
   setTokenShape: (shape: TokenShape) => void;
+  isMyTurn: () => boolean;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -27,6 +30,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   aiLevel: 'medium',
   validMoves: [],
   playerTokenShape: 'circle',
+  myProfileId: null,
 
   initGame: (mode, count, ai = 'medium', tokenShape = 'circle') => {
     const all: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
@@ -57,6 +61,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { state } = get();
     if (!state || state.hasRolled || state.gameStatus !== 'playing') return;
     const dice = roll();
+
+    // Three consecutive sixes: cancel turn, no movement allowed
+    if (dice === 6 && state.consecutiveSixes >= 2) {
+      set({
+        state: {
+          ...state,
+          diceValue: dice,
+          hasRolled: true,
+          consecutiveSixes: 0,
+          canRollAgain: false,
+          message: `${state.players[state.currentPlayerIndex].name} rolled three 6s! Turn cancelled.`,
+        },
+        validMoves: [],
+      });
+      return;
+    }
+
     const ns = { ...state, diceValue: dice, hasRolled: true };
     set({ state: ns, validMoves: getValidMoves(ns) });
   },
@@ -110,9 +131,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setTokenShape: (shape) => set({ playerTokenShape: shape }),
 
+  setMyProfileId: (id) => set({ myProfileId: id }),
+
+  isMyTurn: () => {
+    const { state, gameMode, myProfileId } = get();
+    if (!state || state.gameStatus !== 'playing') return false;
+    // In non-online modes, it's always "my turn" (local control)
+    if (gameMode !== 'online') return true;
+    if (!myProfileId) return false;
+    const cur = state.players[state.currentPlayerIndex];
+    return cur.profile?.id === myProfileId;
+  },
+
   // helpers used for online games
-  loadState: (state, mode) => {
-    set({ state, gameMode: mode, validMoves: getValidMoves(state) });
+  loadState: (state, mode, profileId) => {
+    set({ state, gameMode: mode, validMoves: getValidMoves(state), ...(profileId ? { myProfileId: profileId } : {}) });
   },
   setGameState: (state) => {
     set({ state, validMoves: getValidMoves(state) });

@@ -4,7 +4,7 @@ export type TokenShape = 'circle' | 'horse' | 'lion' | 'wolf' | 'bomb' | 'star' 
 export interface TokenState {
   id: number;
   color: PlayerColor;
-  position: number; // -1=home, 0-50=track(relative), 51-56=homeStretch, 57=finished
+  position: number; // -1=home, 0-50=track(relative), 51-55=homeStretch, 56=finished
 }
 
 export interface PlayerProfile {

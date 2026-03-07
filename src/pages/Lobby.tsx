@@ -81,21 +81,27 @@ const Lobby = () => {
     try {
       const { data: room, error } = await supabase
         .from('rooms')
-        .select('*, room_members(*)')
+        .select('*')
         .eq('code', roomCode.toUpperCase().trim())
         .eq('status', 'waiting')
         .single();
 
       if (error || !room) { toast.error('Room not found or already started'); return; }
 
-      const members = (room as any).room_members || [];
-      if (members.length >= room.max_players) { toast.error('Room is full'); return; }
-      if (members.some((m: any) => m.profile_id === profile.id)) {
+      // Fetch members separately to avoid RLS issues with embedded queries
+      const { data: members } = await supabase
+        .from('room_members')
+        .select('profile_id, player_color')
+        .eq('room_id', room.id);
+
+      const memberList = members || [];
+      if (memberList.length >= room.max_players) { toast.error('Room is full'); return; }
+      if (memberList.some(m => m.profile_id === profile.id)) {
         nav(`/room/${room.code}`);
         return;
       }
 
-      const usedColors = members.map((m: any) => m.player_color);
+      const usedColors = memberList.map(m => m.player_color);
       const availableColor = COLORS.find(c => !usedColors.includes(c)) || 'green';
 
       await supabase

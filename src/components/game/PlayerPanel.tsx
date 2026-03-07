@@ -15,7 +15,7 @@ const colors: Record<PlayerColor, { main: string; light: string; dark: string }>
 };
 
 const PlayerPanel = ({ player, isActive, tokens }: Props) => {
-  const done = tokens.filter(t => t.position === 57).length;
+  const done = tokens.filter(t => t.position === 56).length;
   const c = colors[player.color];
 
   return (
@@ -33,20 +33,29 @@ const PlayerPanel = ({ player, isActive, tokens }: Props) => {
       }}
     >
       {/* Avatar */}
-      <div
-        className="w-6 sm:w-8 h-6 sm:h-8 rounded-full flex items-center justify-center text-white text-[10px] sm:text-xs font-bold shrink-0"
-        style={{
-          background: `linear-gradient(135deg, ${c.light}, ${c.dark})`,
-          boxShadow: `0 2px 6px ${c.dark}88`,
-          border: `2px solid ${c.light}66`,
-        }}
-      >
-        {player.name[0]}
-      </div>
+      {player.profile?.avatar_url ? (
+        <img
+          src={player.profile.avatar_url}
+          alt={player.profile.username}
+          className="w-6 sm:w-8 h-6 sm:h-8 rounded-full object-cover shrink-0"
+          style={{ border: `2px solid ${c.light}66` }}
+        />
+      ) : (
+        <div
+          className="w-6 sm:w-8 h-6 sm:h-8 rounded-full flex items-center justify-center text-white text-[10px] sm:text-xs font-bold shrink-0"
+          style={{
+            background: `linear-gradient(135deg, ${c.light}, ${c.dark})`,
+            boxShadow: `0 2px 6px ${c.dark}88`,
+            border: `2px solid ${c.light}66`,
+          }}
+        >
+          {(player.profile?.username || player.name)[0].toUpperCase()}
+        </div>
+      )}
       <div className="min-w-0">
         <div className="text-[10px] sm:text-xs font-bold text-white flex items-center gap-1">
-          <span className="hidden sm:inline">{player.name}</span>
-          <span className="sm:hidden">{player.name[0]}</span>
+          <span className="hidden sm:inline">{player.profile?.username || player.name}</span>
+          <span className="sm:hidden">{(player.profile?.username || player.name)[0].toUpperCase()}</span>
           {player.isAI && <span className="opacity-50 text-[10px]">🤖</span>}
         </div>
         {/* Token progress as mini circles */}

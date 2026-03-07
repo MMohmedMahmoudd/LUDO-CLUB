@@ -121,10 +121,10 @@ const Preview = () => {
         <div className="text-green-300 font-semibold mb-2">✓ Home Stretch Configuration</div>
         <ul className="text-sm text-green-200/80 space-y-1">
           <li>✓ Each player has exactly 6 home stretch squares</li>
-          <li>✓ Total game positions: 58 (0-57)</li>
-          <li>✓ Main track: 52 squares</li>
-          <li>✓ Home stretch: 6 squares per player</li>
-          <li>✓ Final position: Safe home (57)</li>
+          <li>✓ Total game positions: 57 (0-56)</li>
+          <li>✓ Main track: 51 squares (0-50)</li>
+          <li>✓ Home stretch: 6 squares per player (51-56)</li>
+          <li>✓ Final position: Safe home (56)</li>
         </ul>
       </motion.div>
     </div>
