@@ -7,6 +7,7 @@ import { createInitialState } from '@/lib/game-engine';
 import type { PlayerColor, PlayerProfile, GameState, TokenShape } from '@/lib/types';
 import { renderTokenShape } from '@/components/game/TokenShape';
 import { ALL_TOKEN_SHAPES, TOKEN_SHAPE_LABELS } from '@/lib/token-shapes';
+import VoiceChat from '@/components/game/VoiceChat';
 
 const PLAYER_COLORS: Record<string, string> = {
   red: '#E53935', green: '#43A047', blue: '#1E88E5', yellow: '#FDD835',
@@ -225,7 +226,10 @@ const Room = () => {
       style={{ background: 'linear-gradient(180deg, #0D1B2A 0%, #1B2838 40%, #1A237E 100%)' }}
     >
       <div className="w-full max-w-md">
-        <button onClick={leaveRoom} className="text-white/50 hover:text-white text-xs mb-4">← Leave Room</button>
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={leaveRoom} className="text-white/50 hover:text-white text-xs">← Leave Room</button>
+          <VoiceChat roomId={room?.id || null} myProfileId={myProfileId} />
+        </div>
 
         {/* Room info */}
         <motion.div

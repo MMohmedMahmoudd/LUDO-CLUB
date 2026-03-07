@@ -55,62 +55,21 @@ export function rollDice(): number {
   return Math.floor(Math.random() * 6) + 1;
 }
 
-// Returns absolute positions of all opponent blocks (2+ tokens on same tile) on the main track
-function getOpponentBlocks(state: GameState, color: PlayerColor): number[] {
-  const blocks: number[] = [];
-  for (const oc of Object.keys(state.tokens) as PlayerColor[]) {
-    if (oc === color) continue;
-    const counts: Record<number, number> = {};
-    for (const t of state.tokens[oc]) {
-      if (t.position >= 0 && t.position <= 50) {
-        const abs = getAbsolutePosition(oc, t.position);
-        counts[abs] = (counts[abs] || 0) + 1;
-      }
-    }
-    for (const [pos, count] of Object.entries(counts)) {
-      if (count >= 2) blocks.push(Number(pos));
-    }
-  }
-  return blocks;
-}
-
-// Check if moving from currentPos by diceValue would cross or land on any opponent block
-function isBlockedByOpponent(
-  color: PlayerColor, currentPos: number, diceValue: number, blocks: number[],
-): boolean {
-  if (blocks.length === 0) return false;
-  // Only check main track movement (positions 0-50)
-  const startAbs = getAbsolutePosition(color, currentPos);
-  for (let step = 1; step <= diceValue; step++) {
-    const newRel = currentPos + step;
-    if (newRel > 50) break; // entered home path, no more main track blocks
-    const abs = (startAbs + step) % 52;
-    if (blocks.includes(abs)) return true;
-  }
-  return false;
-}
 
 export function getValidMoves(state: GameState): number[] {
   if (!state.diceValue) return []; // No dice rolled yet
   const player = state.players[state.currentPlayerIndex];
   const tokens = state.tokens[player.color];
   const dice = state.diceValue;
-  const blocks = getOpponentBlocks(state, player.color);
 
   return tokens
     .filter(t => {
       if (t.position === 56) return false;
       if (t.position === -1) {
         if (dice !== 6) return false;
-        // Check if starting tile is blocked
-        const startAbs = PLAYER_START[player.color];
-        return !blocks.includes(startAbs);
+        return true;
       }
       if (t.position + dice > 56) return false;
-      // Check if path is blocked by opponent block
-      if (t.position <= 50 && isBlockedByOpponent(player.color, t.position, dice, blocks)) {
-        return false;
-      }
       return true;
     })
     .map(t => t.id);

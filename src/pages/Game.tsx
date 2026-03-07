@@ -7,6 +7,7 @@ import PlayerPanel from '@/components/game/PlayerPanel';
 import { getAIMove } from '@/lib/game-engine';
 import { supabase } from '@/integrations/supabase/client';
 import type { GameState } from '@/lib/types';
+import VoiceChat from '@/components/game/VoiceChat';
 
 const PLAYER_COLORS: Record<string, string> = {
   red: '#E53935', green: '#43A047', blue: '#1E88E5', yellow: '#FDD835',
@@ -21,6 +22,7 @@ const Game = () => {
     setGameState,
     loadState,
     setMyProfileId, isMyTurn,
+    myProfileId,
   } = useGameStore();
 
   const [isOnlineGame, setIsOnlineGame] = useState(false);
@@ -165,6 +167,11 @@ const Game = () => {
         >
           {isOnlineGame ? '← Room' : '← Menu'}
         </button>
+        {isOnlineGame && (
+          <div className="shrink-0 ml-1">
+            <VoiceChat roomId={onlineGameId} myProfileId={myProfileId} />
+          </div>
+        )}
         <motion.div
           key={state.message}
           initial={{ opacity: 0, y: -4 }}
