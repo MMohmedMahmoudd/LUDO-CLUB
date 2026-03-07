@@ -13,77 +13,12 @@ const ICE_SERVERS: RTCConfiguration = {
   ],
 };
 
-function createRobotProcessor(stream: MediaStream): { processedStream: MediaStream; ctx: AudioContext } {
-  const ctx = new AudioContext();
-  const source = ctx.createMediaStreamSource(stream);
-
-  // Ring modulator effect for robot voice
-  const oscGain = ctx.createGain();
-  oscGain.gain.value = 0.6;
-  const osc = ctx.createOscillator();
-  osc.type = 'sawtooth';
-  osc.frequency.value = 50;
-  osc.connect(oscGain);
-  osc.start();
-
-  // Waveshaper for distortion
-  const waveshaper = ctx.createWaveShaper();
-  const curve = new Float32Array(256);
-  for (let i = 0; i < 256; i++) {
-    const x = (i * 2) / 256 - 1;
-    curve[i] = (Math.PI + 200) * x / (Math.PI + 200 * Math.abs(x));
-  }
-  waveshaper.curve = curve;
-
-  // Bandpass filter for metallic tone
-  const bandpass = ctx.createBiquadFilter();
-  bandpass.type = 'bandpass';
-  bandpass.frequency.value = 1200;
-  bandpass.Q.value = 0.8;
-
-  // Second modulator for depth
-  const oscGain2 = ctx.createGain();
-  oscGain2.gain.value = 0.3;
-  const osc2 = ctx.createOscillator();
-  osc2.type = 'square';
-  osc2.frequency.value = 30;
-  osc2.connect(oscGain2);
-  osc2.start();
-
-  // Dry/wet mix
-  const dryGain = ctx.createGain();
-  dryGain.gain.value = 0.4;
-  const wetGain = ctx.createGain();
-  wetGain.gain.value = 0.7;
-  const merger = ctx.createGain();
-
-  // Dry path
-  source.connect(dryGain);
-  dryGain.connect(merger);
-
-  // Wet path: source → waveshaper → bandpass → wetGain → merger
-  source.connect(waveshaper);
-  waveshaper.connect(bandpass);
-  bandpass.connect(wetGain);
-  oscGain.connect(wetGain.gain);
-  oscGain2.connect(wetGain.gain);
-  wetGain.connect(merger);
-
-  const dest = ctx.createMediaStreamDestination();
-  merger.connect(dest);
-
-  return { processedStream: dest.stream, ctx };
-}
-
 export function useVoiceChat(roomId: string | null, myProfileId: string | null) {
   const [micOn, setMicOn] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
-  const [robotVoice, setRobotVoice] = useState(false);
   const [peers, setPeers] = useState<string[]>([]);
 
   const localStream = useRef<MediaStream | null>(null);
-  const rawStream = useRef<MediaStream | null>(null);
-  const robotCtx = useRef<AudioContext | null>(null);
   const peersRef = useRef<Map<string, PeerState>>(new Map());
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const joined = useRef(false);
@@ -225,40 +160,11 @@ export function useVoiceChat(roomId: string | null, myProfileId: string | null) 
     };
   }, [roomId, myProfileId, createPeer, removePeer]);
 
-  // Replace the active track on all peer connections
-  const replaceTrackOnPeers = useCallback((newTrack: MediaStreamTrack) => {
-    peersRef.current.forEach(({ pc }) => {
-      const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
-      if (sender) {
-        sender.replaceTrack(newTrack);
-      }
-    });
-  }, []);
-
-  // Build the outgoing stream (raw or robot-processed)
-  const applyStream = useCallback((raw: MediaStream, robot: boolean): MediaStream => {
-    // Clean up previous robot context
-    if (robotCtx.current) {
-      robotCtx.current.close();
-      robotCtx.current = null;
-    }
-    if (robot) {
-      const { processedStream, ctx } = createRobotProcessor(raw);
-      robotCtx.current = ctx;
-      return processedStream;
-    }
-    return raw;
-  }, []);
-
   // Toggle microphone
   const toggleMic = useCallback(async () => {
     if (micOn) {
-      // Turn off
-      rawStream.current?.getTracks().forEach(t => t.stop());
       localStream.current?.getTracks().forEach(t => t.stop());
-      rawStream.current = null;
       localStream.current = null;
-      if (robotCtx.current) { robotCtx.current.close(); robotCtx.current = null; }
       peersRef.current.forEach(({ pc }) => {
         pc.getSenders().forEach(sender => {
           if (sender.track) pc.removeTrack(sender);
@@ -267,12 +173,10 @@ export function useVoiceChat(roomId: string | null, myProfileId: string | null) 
       setMicOn(false);
     } else {
       try {
-        const raw = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        rawStream.current = raw;
-        const outStream = applyStream(raw, robotVoice);
-        localStream.current = outStream;
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        localStream.current = stream;
         peersRef.current.forEach(({ pc }, peerId) => {
-          outStream.getTracks().forEach(track => pc.addTrack(track, outStream));
+          stream.getTracks().forEach(track => pc.addTrack(track, stream));
           pc.createOffer().then(offer => {
             pc.setLocalDescription(offer);
             channelRef.current?.send({
@@ -287,19 +191,7 @@ export function useVoiceChat(roomId: string | null, myProfileId: string | null) 
         console.warn('Microphone access denied');
       }
     }
-  }, [micOn, myProfileId, robotVoice, applyStream]);
-
-  // Toggle robot voice effect
-  const toggleRobot = useCallback(() => {
-    const next = !robotVoice;
-    setRobotVoice(next);
-    if (micOn && rawStream.current) {
-      const outStream = applyStream(rawStream.current, next);
-      localStream.current = outStream;
-      const newTrack = outStream.getAudioTracks()[0];
-      if (newTrack) replaceTrackOnPeers(newTrack);
-    }
-  }, [robotVoice, micOn, applyStream, replaceTrackOnPeers]);
+  }, [micOn, myProfileId]);
 
   // Toggle speaker
   const toggleSpeaker = useCallback(() => {
@@ -310,5 +202,5 @@ export function useVoiceChat(roomId: string | null, myProfileId: string | null) 
     });
   }, [speakerOn]);
 
-  return { micOn, speakerOn, robotVoice, toggleMic, toggleRobot, toggleSpeaker, connectedPeers: peers.length };
+  return { micOn, speakerOn, toggleMic, toggleSpeaker, connectedPeers: peers.length };
 }
