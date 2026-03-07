@@ -113,13 +113,6 @@ const Room = () => {
         }
       })
       .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'profiles',
-      }, () => {
-        fetchMembers(room.id);
-      })
-      .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'games',
@@ -149,13 +142,20 @@ const Room = () => {
   };
 
   const changeTokenShape = async (shape: TokenShape) => {
-    if (!myProfileId) return;
+    if (!myProfileId || !room) return;
     await supabase
       .from('profiles')
       .update({ token_skin: shape })
       .eq('id', myProfileId);
+    // Touch room_member to trigger realtime for other players
+    if (myMember) {
+      await supabase
+        .from('room_members')
+        .update({ joined_at: new Date().toISOString() })
+        .eq('id', myMember.id);
+    }
     setShowShapePicker(false);
-    if (room) fetchMembers(room.id);
+    fetchMembers(room.id);
   };
 
   const myMember = members.find(m => m.profile_id === myProfileId);
