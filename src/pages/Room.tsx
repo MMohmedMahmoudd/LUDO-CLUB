@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { createInitialState } from '@/lib/game-engine';
-import type { PlayerColor, PlayerProfile, GameState } from '@/lib/types';
+import type { PlayerColor, PlayerProfile, GameState, TokenShape } from '@/lib/types';
 import { renderTokenShape } from '@/components/game/TokenShape';
+import { ALL_TOKEN_SHAPES, TOKEN_SHAPE_LABELS } from '@/lib/token-shapes';
 
 const PLAYER_COLORS: Record<string, string> = {
   red: '#E53935', green: '#43A047', blue: '#1E88E5', yellow: '#FDD835',
@@ -25,6 +26,7 @@ const Room = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [myProfileId, setMyProfileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showShapePicker, setShowShapePicker] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -111,6 +113,13 @@ const Room = () => {
         }
       })
       .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+      }, () => {
+        fetchMembers(room.id);
+      })
+      .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'games',
@@ -138,6 +147,19 @@ const Room = () => {
       .eq('profile_id', myProfileId);
     nav('/lobby');
   };
+
+  const changeTokenShape = async (shape: TokenShape) => {
+    if (!myProfileId) return;
+    await supabase
+      .from('profiles')
+      .update({ token_skin: shape })
+      .eq('id', myProfileId);
+    setShowShapePicker(false);
+    if (room) fetchMembers(room.id);
+  };
+
+  const myMember = members.find(m => m.profile_id === myProfileId);
+  const myTokenSkin = myMember?.profiles?.token_skin || 'circle';
 
   const isCreator = room?.created_by === myProfileId;
 
@@ -266,7 +288,13 @@ const Room = () => {
                   </p>
                 </div>
                 {member?.profile_id === myProfileId && (
-                  <span className="text-white/40 text-xs">You</span>
+                  <button
+                    onClick={() => setShowShapePicker(!showShapePicker)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                  >
+                    <span className="w-5 h-5">{renderTokenShape(myTokenSkin, color, '20')}</span>
+                    <span className="text-white/40 text-[10px]">Change</span>
+                  </button>
                 )}
                 {member?.profile_id === room?.created_by && (
                   <span className="text-yellow-400 text-xs">👑</span>
@@ -275,6 +303,45 @@ const Room = () => {
             );
           })}
         </div>
+
+        {/* Token shape picker */}
+        <AnimatePresence>
+          {showShapePicker && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-4 overflow-hidden"
+            >
+              <div
+                className="p-4 rounded-2xl"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
+              >
+                <p className="text-white/60 text-xs font-semibold mb-3">Choose your token shape</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {ALL_TOKEN_SHAPES.map(shape => {
+                    const isSelected = myTokenSkin === shape;
+                    const myColor = myMember?.player_color || 'red';
+                    return (
+                      <button
+                        key={shape}
+                        onClick={() => changeTokenShape(shape)}
+                        className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all"
+                        style={{
+                          background: isSelected ? `${PLAYER_COLORS[myColor]}30` : 'rgba(255,255,255,0.05)',
+                          border: isSelected ? `2px solid ${PLAYER_COLORS[myColor]}` : '2px solid transparent',
+                        }}
+                      >
+                        <span className="w-8 h-8">{renderTokenShape(shape, myColor as PlayerColor, '32')}</span>
+                        <span className="text-white/60 text-[10px]">{TOKEN_SHAPE_LABELS[shape]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Start game (creator only) */}
         {isCreator && members.length >= 2 && (
