@@ -91,9 +91,10 @@ function isBlockedByOpponent(
 }
 
 export function getValidMoves(state: GameState): number[] {
+  if (!state.diceValue) return []; // No dice rolled yet
   const player = state.players[state.currentPlayerIndex];
   const tokens = state.tokens[player.color];
-  const dice = state.diceValue!;
+  const dice = state.diceValue;
   const blocks = getOpponentBlocks(state, player.color);
 
   return tokens
@@ -116,10 +117,11 @@ export function getValidMoves(state: GameState): number[] {
 }
 
 export function executeMove(state: GameState, tokenId: number): GameState {
+  if (!state.diceValue) return state; // Safety: no dice rolled
   const s: GameState = JSON.parse(JSON.stringify(state));
   const player = s.players[s.currentPlayerIndex];
   const token = s.tokens[player.color][tokenId];
-  const dice = s.diceValue!;
+  const dice = s.diceValue;
   let killed = false;
 
   if (token.position === -1) {
