@@ -12,6 +12,10 @@ import VoiceChat from '@/components/game/VoiceChat';
 const PLAYER_COLORS: Record<string, string> = {
   red: '#E53935', green: '#43A047', blue: '#1E88E5', yellow: '#FDD835',
 };
+const ALL_COLORS: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
+const COLOR_LABELS: Record<string, string> = {
+  red: 'Red', green: 'Green', blue: 'Blue', yellow: 'Yellow',
+};
 
 interface Member {
   id: string;
@@ -28,6 +32,7 @@ const Room = () => {
   const [myProfileId, setMyProfileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showShapePicker, setShowShapePicker] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -156,6 +161,27 @@ const Room = () => {
         .eq('id', myMember.id);
     }
     setShowShapePicker(false);
+    fetchMembers(room.id);
+  };
+
+  const changeColor = async (newColor: PlayerColor) => {
+    if (!myProfileId || !room) return;
+    const myMem = members.find(m => m.profile_id === myProfileId);
+    if (!myMem) return;
+    // Check if the color is taken by another player
+    const taken = members.find(m => m.player_color === newColor && m.profile_id !== myProfileId);
+    if (taken) {
+      // Swap colors with the other player
+      await supabase
+        .from('room_members')
+        .update({ player_color: myMem.player_color })
+        .eq('id', taken.id);
+    }
+    await supabase
+      .from('room_members')
+      .update({ player_color: newColor })
+      .eq('id', myMem.id);
+    setShowColorPicker(false);
     fetchMembers(room.id);
   };
 
@@ -292,13 +318,24 @@ const Room = () => {
                   </p>
                 </div>
                 {member?.profile_id === myProfileId && (
-                  <button
-                    onClick={() => setShowShapePicker(!showShapePicker)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-                  >
-                    <span className="w-5 h-5">{renderTokenShape(myTokenSkin, color, '20')}</span>
-                    <span className="text-white/40 text-[10px]">Change</span>
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => { setShowColorPicker(!showColorPicker); setShowShapePicker(false); }}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                      title="Change color"
+                    >
+                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: PLAYER_COLORS[color] }} />
+                      <span className="text-white/40 text-[10px]">Color</span>
+                    </button>
+                    <button
+                      onClick={() => { setShowShapePicker(!showShapePicker); setShowColorPicker(false); }}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                      title="Change shape"
+                    >
+                      <span className="w-5 h-5">{renderTokenShape(myTokenSkin, color, '20')}</span>
+                      <span className="text-white/40 text-[10px]">Shape</span>
+                    </button>
+                  </div>
                 )}
                 {member?.profile_id === room?.created_by && (
                   <span className="text-yellow-400 text-xs">👑</span>
@@ -307,6 +344,53 @@ const Room = () => {
             );
           })}
         </div>
+
+        {/* Color picker */}
+        <AnimatePresence>
+          {showColorPicker && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-4 overflow-hidden"
+            >
+              <div
+                className="p-4 rounded-2xl"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
+              >
+                <p className="text-white/60 text-xs font-semibold mb-3">Choose your color</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {ALL_COLORS.map(c => {
+                    const isMyColor = myMember?.player_color === c;
+                    const takenBy = members.find(m => m.player_color === c && m.profile_id !== myProfileId);
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => changeColor(c)}
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all"
+                        style={{
+                          background: isMyColor ? `${PLAYER_COLORS[c]}30` : 'rgba(255,255,255,0.05)',
+                          border: isMyColor ? `2px solid ${PLAYER_COLORS[c]}` : '2px solid transparent',
+                        }}
+                      >
+                        <div
+                          className="w-8 h-8 rounded-full"
+                          style={{ backgroundColor: PLAYER_COLORS[c] }}
+                        />
+                        <span className="text-white/80 text-[10px] font-semibold">{COLOR_LABELS[c]}</span>
+                        {takenBy && (
+                          <span className="text-white/30 text-[9px]">
+                            {(takenBy.profiles as any)?.username?.[0]?.toUpperCase() || '?'} (swap)
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Token shape picker */}
         <AnimatePresence>
