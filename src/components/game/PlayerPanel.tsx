@@ -5,6 +5,7 @@ interface Props {
   player: Player;
   isActive: boolean;
   tokens: TokenState[];
+  rank?: number; // 1-based finish position, undefined if not yet finished
 }
 
 const colors: Record<PlayerColor, { main: string; light: string; dark: string }> = {
@@ -14,7 +15,9 @@ const colors: Record<PlayerColor, { main: string; light: string; dark: string }>
   yellow: { main: '#FDD835', light: '#FFEE58', dark: '#F57F17' },
 };
 
-const PlayerPanel = ({ player, isActive, tokens }: Props) => {
+const RANK_MEDALS = ['🥇', '🥈', '🥉'];
+
+const PlayerPanel = ({ player, isActive, tokens, rank }: Props) => {
   const done = tokens.filter(t => t.position === 56).length;
   const c = colors[player.color];
 
@@ -57,6 +60,7 @@ const PlayerPanel = ({ player, isActive, tokens }: Props) => {
           <span className="hidden sm:inline">{player.profile?.username || player.name}</span>
           <span className="sm:hidden">{(player.profile?.username || player.name)[0].toUpperCase()}</span>
           {player.isAI && <span className="opacity-50 text-[10px]">🤖</span>}
+          {rank != null && <span className="text-[10px]">{RANK_MEDALS[rank - 1] || `${rank}th`}</span>}
         </div>
         {/* Token progress as mini circles */}
         <div className="flex gap-0.5 sm:gap-1 mt-0.5">

@@ -11,7 +11,7 @@ interface GameStore {
   validMoves: number[];
   playerTokenShape: TokenShape;
   myProfileId: string | null;
-  initGame: (mode: GameMode, count: number, ai?: AILevel, tokenShape?: TokenShape) => void;
+  initGame: (mode: GameMode, colors: PlayerColor[], ai?: AILevel, tokenShape?: TokenShape, playerShapes?: Record<number, TokenShape>) => void;
   loadState: (state: GameState, mode: GameMode, profileId?: string) => void;
   setGameState: (state: GameState) => void;
   setMyProfileId: (id: string) => void;
@@ -32,22 +32,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
   playerTokenShape: 'circle',
   myProfileId: null,
 
-  initGame: (mode, count, ai = 'medium', tokenShape = 'circle') => {
-    const all: PlayerColor[] = ['red', 'green', 'blue', 'yellow'];
-    const colors = all.slice(0, count);
+  initGame: (mode, colors, ai = 'medium', tokenShape = 'circle', playerShapes = {}) => {
     const aiPlayers = mode === 'ai' ? colors.slice(1) : [];
     const gameState = createInitialState(colors, aiPlayers);
-    
-    // Add profile to the first player (human player) with selected token shape
-    if (gameState.players.length > 0) {
-      gameState.players[0].profile = {
-        id: 'player-1',
-        username: gameState.players[0].name,
+
+    // Add profile to each player with their selected token shape
+    gameState.players.forEach((p, i) => {
+      p.profile = {
+        id: `player-${i + 1}`,
+        username: p.name,
         avatar_url: null,
-        tokenShape,
+        tokenShape: playerShapes[i] ?? tokenShape,
       };
-    }
-    
+    });
+
     set({
       state: gameState,
       gameMode: mode,
@@ -91,7 +89,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   skipTurn: () => {
     const { state } = get();
     if (!state) return;
-    const idx = (state.currentPlayerIndex + 1) % state.players.length;
+    // Find the next player who hasn't finished all tokens
+    const len = state.players.length;
+    let idx = (state.currentPlayerIndex + 1) % len;
+    for (let i = 0; i < len; i++) {
+      if (!state.rankings.includes(state.players[idx].color)) break;
+      idx = (idx + 1) % len;
+    }
     const next = state.players[idx];
     set({
       state: {
@@ -110,22 +114,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetGame: () => set({ state: null, gameMode: null, validMoves: [] }),
 
   restartGame: () => {
-    const { state, gameMode, aiLevel, playerTokenShape } = get();
+    const { state, gameMode, aiLevel } = get();
     if (!state || !gameMode) return;
+    const oldProfiles = state.players.map(p => p.profile);
     const colors = state.players.map(p => p.color);
     const ais = state.players.filter(p => p.isAI).map(p => p.color);
     const gameState = createInitialState(colors, ais);
-    
-    // Re-add profile to the first player (human player)
-    if (gameState.players.length > 0) {
-      gameState.players[0].profile = {
-        id: 'player-1',
-        username: gameState.players[0].name,
-        avatar_url: null,
-        tokenShape: playerTokenShape,
-      };
-    }
-    
+
+    // Restore all player profiles (colors + shapes)
+    gameState.players.forEach((p, i) => {
+      if (oldProfiles[i]) p.profile = oldProfiles[i];
+    });
+
     set({ state: gameState, validMoves: [] });
   },
 

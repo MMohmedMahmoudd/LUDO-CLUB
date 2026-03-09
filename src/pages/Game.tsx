@@ -190,15 +190,19 @@ const Game = () => {
 
       {/* Player panels - responsive grid */}
       <div className="flex flex-wrap gap-1 sm:gap-2 justify-center w-full px-1 sm:px-3 pb-1 sm:pb-2 shrink-0">
-        {state.players.map(p => (
-          <div key={p.color} className="flex-shrink-0">
-            <PlayerPanel
-              player={p}
-              isActive={p.color === cur.color}
-              tokens={state.tokens[p.color]}
-            />
-          </div>
-        ))}
+        {state.players.map(p => {
+          const rankIdx = state.rankings.indexOf(p.color);
+          return (
+            <div key={p.color} className="flex-shrink-0">
+              <PlayerPanel
+                player={p}
+                isActive={p.color === cur.color}
+                tokens={state.tokens[p.color]}
+                rank={rankIdx >= 0 ? rankIdx + 1 : undefined}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Board - takes remaining full width and height */}
@@ -242,14 +246,46 @@ const Game = () => {
                 const winnerPlayer = state.players.find(p => p.color === state.winner);
                 const winnerName = winnerPlayer?.profile?.username || winnerPlayer?.name || state.winner;
                 return (
-                  <>
-                    <h2 className="text-3xl font-black text-white mb-1">
-                      {winnerName} Wins!
-                    </h2>
-                    <p className="text-white/50 text-sm mb-6">Congratulations!</p>
-                  </>
+                  <h2 className="text-3xl font-black text-white mb-1">
+                    {winnerName} Wins!
+                  </h2>
                 );
               })()}
+
+              {/* Full rankings */}
+              <div className="mt-4 mb-6 space-y-2">
+                {state.rankings.map((color, i) => {
+                  const p = state.players.find(pl => pl.color === color);
+                  const name = p?.profile?.username || p?.name || color;
+                  const medals = ['🥇', '🥈', '🥉', '4th'];
+                  return (
+                    <motion.div
+                      key={color}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + i * 0.15 }}
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                      style={{
+                        background: `${PLAYER_COLORS[color]}15`,
+                        border: `1px solid ${PLAYER_COLORS[color]}33`,
+                      }}
+                    >
+                      <span className="text-lg">{medals[i] || `${i + 1}th`}</span>
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: PLAYER_COLORS[color] }}
+                      />
+                      <span className="text-white text-sm font-semibold flex-1 text-left">
+                        {name}
+                      </span>
+                      <span className="text-white/40 text-xs">
+                        {i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : '4th'}
+                      </span>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
               <div className="flex gap-3">
                 <button
                   onClick={() => {

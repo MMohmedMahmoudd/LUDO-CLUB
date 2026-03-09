@@ -4,6 +4,23 @@ import {
   SAFE_POSITIONS, HOME_ENTRY_ABSOLUTE,
 } from './board-data';
 
+function getOrdinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/** Find the next player index that hasn't finished all tokens */
+function nextActivePlayer(state: GameState): number {
+  const len = state.players.length;
+  let idx = (state.currentPlayerIndex + 1) % len;
+  for (let i = 0; i < len; i++) {
+    if (!state.rankings.includes(state.players[idx].color)) return idx;
+    idx = (idx + 1) % len;
+  }
+  return state.currentPlayerIndex; // fallback
+}
+
 export function getAbsolutePosition(color: PlayerColor, relativePos: number): number {
   return (PLAYER_START[color] + relativePos) % 52;
 }
@@ -47,6 +64,7 @@ export function createInitialState(
     consecutiveSixes: 0,
     gameStatus: 'playing',
     winner: null,
+    rankings: [],
     message: `${players[0].name}'s turn — Roll the dice!`,
   };
 }
@@ -112,17 +130,44 @@ export function executeMove(state: GameState, tokenId: number): GameState {
   }
 
   const finished = token.position === 56;
+  let playerJustCompleted = false;
   if (finished) {
     player.tokensFinished++;
-    if (player.tokensFinished === 4) {
-      s.gameStatus = 'finished';
-      s.winner = player.color;
-      s.message = `🎉 ${player.name} wins!`;
-      return s;
+    if (player.tokensFinished === 4 && !s.rankings.includes(player.color)) {
+      s.rankings.push(player.color);
+      playerJustCompleted = true;
+      // Set winner to first finisher
+      if (s.rankings.length === 1) {
+        s.winner = player.color;
+      }
+      // Check if game should end: all but one player finished (or all in 2-player)
+      const activePlayers = s.players.filter(p => !s.rankings.includes(p.color));
+      if (activePlayers.length <= 1) {
+        // Last remaining player gets the final rank
+        if (activePlayers.length === 1) {
+          s.rankings.push(activePlayers[0].color);
+        }
+        s.gameStatus = 'finished';
+        s.message = `🎉 Game Over! ${s.players.find(p => p.color === s.winner)?.name} wins!`;
+        return s;
+      }
+      s.message = `🎉 ${player.name} finishes in ${getOrdinal(s.rankings.length)} place!`;
     }
   }
 
   if (dice === 6 || killed || finished) {
+    // If the player just completed all tokens, don't give extra turn — move to next
+    if (playerJustCompleted) {
+      s.currentPlayerIndex = nextActivePlayer(s);
+      s.consecutiveSixes = 0;
+      s.canRollAgain = false;
+      s.diceValue = null;
+      s.hasRolled = false;
+      if (!s.message.includes('finishes in')) {
+        s.message = `${s.players[s.currentPlayerIndex].name}'s turn — Roll the dice!`;
+      }
+      return s;
+    }
     s.canRollAgain = true;
     s.consecutiveSixes = dice === 6 ? s.consecutiveSixes + 1 : 0;
     if (finished) {
@@ -133,7 +178,7 @@ export function executeMove(state: GameState, tokenId: number): GameState {
       s.message = `${player.name} rolled 6! Extra turn!`;
     }
   } else {
-    s.currentPlayerIndex = (s.currentPlayerIndex + 1) % s.players.length;
+    s.currentPlayerIndex = nextActivePlayer(s);
     s.consecutiveSixes = 0;
     s.canRollAgain = false;
     s.message = `${s.players[s.currentPlayerIndex].name}'s turn — Roll the dice!`;

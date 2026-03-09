@@ -32,6 +32,7 @@ export interface GameState {
   consecutiveSixes: number;
   gameStatus: 'playing' | 'finished';
   winner: PlayerColor | null;
+  rankings: PlayerColor[]; // ordered list of finishers (1st, 2nd, 3rd...)
   message: string;
 }
  // (unchanged)
