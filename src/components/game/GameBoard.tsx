@@ -217,7 +217,7 @@ const GameBoard = ({ state, validMoves, onTokenClick, diceValue, canRoll, onRoll
                 className="relative flex items-center justify-center"
                 style={{
                   backgroundColor: isCenter ? 'transparent' : bg,
-                  border: isCenter ? 'none' : `0.5px solid ${CELL_BORDER}40`,
+                  border: isCenter ? 'none' : '0.5px solid #000000',
                 }}
               >
                 {isStar && (
